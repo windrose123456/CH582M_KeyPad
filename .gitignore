@@ -2,6 +2,7 @@
 *.PrjPcbStructure
 *.SchDocPreview
 *.PcbDocPreview
+
 Hardware/History/
 __Previews/
 *.OutJob
@@ -51,3 +52,7 @@ Output/
 Gerber/
 BOM/
 PickAndPlace/
+
+# MounRiver Studio 工作区缓存和编译输出
+Firmware/.mrs/
+Firmware/obj/
