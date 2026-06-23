@@ -1,0 +1,53 @@
+# Altium Designer 临时文件
+*.PrjPcbStructure
+*.SchDocPreview
+*.PcbDocPreview
+Hardware/History/
+__Previews/
+*.OutJob
+*.Rpt
+*.htm
+*.log
+*.tmp
+*.bak
+
+# 编译输出（Keil / IAR / GCC）
+*.o
+*.d
+*.crf
+*.htm
+*.dep
+*.axf
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.i
+*.sbr
+*.dbg
+*.uvguix.*
+*.uvoptx
+*.uvprojx.user
+*.ewt
+*.ewd
+*.ewp
+*.eww
+*.jlink
+Debug/
+Release/
+Build/
+*.scvd
+*.uvguix
+
+# 系统文件
+Thumbs.db
+.DS_Store
+*.swp
+*.swo
+
+# 工具生成目录
+Output/
+Gerber/
+BOM/
+PickAndPlace/
