@@ -1,0 +1,34 @@
+🚀 1. 日常提交推送（你最常用的三板斧）
+命令	说明	使用时机
+git status	查看当前仓库状态（哪些文件改了、哪些没提交）	每次操作前必敲，防止手滑
+git add .	添加当前目录下所有变更到暂存区	确认要提交所有改动时用
+git add 文件名	只添加指定文件（如 git add main.c）	只想提交单个文件时用
+git commit -m "注释"	提交到本地仓库，并写上说明	add 之后执行
+git push	把本地提交推送到 GitHub 远程仓库	commit 之后执行，上传云端
+
+📂 2. 克隆与下载（换电脑时用）
+命令	说明
+git clone 仓库地址	把远程仓库完整下载到本地（如 git clone https://github.com/xxx/xxx.git）
+git pull	拉取远程仓库的最新改动，合并到当前代码（换电脑后，或同事推送后，用这个更新）
+
+🔍 3. 查看与对比（检查改了什么）
+命令	说明
+git log	查看历史提交记录（按 q 退出）
+git log --oneline	查看简版历史（只显示一行注释，更清爽）
+git diff	查看当前文件还没暂存的改动内容
+git diff --cached	查看已经 add 但还没 commit 的改动内容
+
+🔄 4. 撤销与修正（后悔药）
+命令	说明	场景
+git restore 文件名	丢弃工作区的修改，恢复到上次提交的状态	改乱了代码想彻底扔掉本次修改
+git reset	撤回 git add 的暂存操作（文件回归未添加状态）	add 多了不想要的文件，重新选择
+git reset --soft HEAD~1	撤回上一次 commit，但保留改动内容在暂存区	刚提交完发现注释写错了，重新 commit -m
+git reset --hard HEAD~1	撤回上一次 commit，彻底丢弃该次所有改动（慎用！）	提交了一堆垃圾，想回到上一版干净状态
+
+🌿 5. 分支（简单够用）
+命令	说明
+git branch	查看当前所有分支（带 * 的是当前所在分支）
+git branch 新分支名	创建新分支（如 git branch dev）
+git checkout 分支名	切换到指定分支（如 git checkout dev）
+git checkout -b 新分支名	创建并直接切换到新分支（一步到位）
+git merge 分支名	将指定分支合并到当前分支（如 git merge dev）
