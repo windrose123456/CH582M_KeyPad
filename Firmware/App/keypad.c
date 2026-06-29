@@ -1,6 +1,8 @@
 #include "keypad.h"
 // 矩阵扫描与防抖。管理所有按键的物理读取、消抖状态机。
 
+#define KEY_NUM         10
+
 // 按键状态数组（当前状态）
 static uint8_t s_keyState[1] = {KEY_RELEASED};
 
@@ -12,7 +14,7 @@ static uint8_t KeyPad_ReadPin(void)
 {
     // GPIOB的输入数据寄存器是 R32_PB_IN
     // 或者使用库函数：GPIOB_ReadPortPin(KEY_PIN)
-    uint8_t pinLevel = GPIOB_ReadPortPin(KEY_PIN);
+    uint8_t pinLevel = (GPIOB_ReadPort() & KEY_PIN) ? 1 : 0;
     return pinLevel;
 }
 
@@ -21,19 +23,12 @@ static uint8_t KeyPad_ReadPin(void)
  *        配置PB1为输入，上拉模式（适用于按键接GND）
  */
 void KeyPad_Init(void)
-{
-    // 1. 开启GPIOB时钟
-    RCC->GPIOB_CLK |= RB_GPIOB_EN;
-    
-    // 2. 配置PB1为输入，上拉
+{    
+    // 1. 配置PB1为输入，上拉
     //    PB1 使用 GPIO_ModeIN_PU（输入上拉）
     GPIOB_ModeCfg(KEY_PIN, GPIO_ModeIN_PU);
-
-    GPIOA_SetBits(GPIO_Pin_9);
-    /GPIOA_ModeCfg(GPIO_Pin_8, GPIO_ModeIN_PU);
-    GPIOA_ModeCfg(GPIO_Pin_9, GPIO_ModeOut_PP_5mA);
     
-    // 3. 读取一次初始状态，用于后续防抖
+    // 2. 读取一次初始状态，用于后续防抖
     s_keyState[0] = KeyPad_ReadPin();
     s_debounceCount[0] = 0;
 }
@@ -81,4 +76,15 @@ uint8_t KeyPad_GetState(uint8_t key_index)
         return s_keyState[0];
     }
     return KEY_RELEASED;  // 无效索引默认返回释放
+}
+
+uint16_t KeyPad_GetBitmap(void)
+{
+    uint16_t bitmap = 0;
+    for (int i = 0; i < KEY_NUM; i++) {
+        if (s_keyState[i] == KEY_PRESSED) {
+            bitmap |= (1 << i);
+        }
+    }
+    return bitmap;
 }

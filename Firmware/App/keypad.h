@@ -16,5 +16,6 @@
 void KeyPad_Init(void);
 uint8_t KeyPad_Scan(void);
 uint8_t KeyPad_GetState(uint8_t key_index);
+uint16_t KeyPad_GetBitmap(void);
 
 #endif

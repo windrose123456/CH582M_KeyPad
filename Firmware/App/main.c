@@ -12,6 +12,8 @@
 
 #include "CH58x_common.h"
 #include "hid_report.h"
+#include "keypad.h"
+#include "keymap.h"
 
 /*********************************************************************
  * @fn      DevWakeup
@@ -66,28 +68,26 @@ int main()
     PFIC_EnableIRQ(USB_IRQn);       //启用中断向量
     mDelaymS(100);
 
-    uint8_t USB_Data[10] = { 0 };
-    USB_Data[0] = 0x05;
-    USB_Data[1] = 0x10;
-    USB_Data[2] = 0x20;
-    USB_Data[3] = 0x11;
+    // uint8_t USB_Data[10] = { 0 };
+    // USB_Data[0] = 0x05;
+    // USB_Data[1] = 0x10;
+    // USB_Data[2] = 0x20;
+    // USB_Data[3] = 0x11;
+
+    KeyPad_Init();
 
     while(1)
     {
         // 1. 调用扫描函数（建议放在1ms定时器中断中，这里只是演示）
+
         if (KeyPad_Scan()) {
-            // 2. 如果状态变化，获取当前状态
-            uint8_t keyState = KeyPad_GetState(0);
-            
             // 3. 仅当USB活跃时才发送
             if (HID_IsReady()) {
-                if (keyState == KEY_PRESSED) {
-                    // 发送按键按下：假设键值为 'A' (0x04)
-                    DevHIDReport(USB_Data, 1);
-                } else {
-                    // 发送按键释放：全部清零
-                    DevHIDReport(USB_Data, 1);
-                }
+                uint16_t bitmap = KeyPad_GetBitmap();
+                uint8_t report[2];
+                report[0] = bitmap & 0xFF;
+                report[1] = (bitmap >> 8) & 0xFF;
+                DevHIDReport(report, 2);
             }
         }
         

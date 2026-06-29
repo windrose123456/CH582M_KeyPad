@@ -3,39 +3,59 @@
 #include "hid_report.h"
 
 // 设备描述符
-const uint8_t MyDevDescr[] = {0x12,0x01,0x10,0x01,0x00,0x00,0x00,DevEP0SIZE,0x3d,0x41,0x07,0x21,0x00,0x00,0x01,0x02,0x00,0x01};
+const uint8_t MyDevDescr[] = {0x12,0x01,0x10,0x01,0x00,0x00,0x00,DevEP0SIZE,0x27,0x95,0x27,0x95,0x00,0x01,0x01,0x02,0x00,0x01};
+/*HID类报表描述符*/
+const uint8_t HIDDescr[] = {  0x05, 0x01,                                                   //Generic Desktop
+                              0x09, 0x06,                                                   //Keyboard   
+                              0xA1, 0x01,                                                   //集合开始
+
+                              // 普通按键 0-9
+                              0x05, 0x07,                                                   //Keyboard Application
+                              0x19, 0x04,                                                   //Uasge  Minimun
+                              0x29, 0x0D,                                                   //Usage  Maximun
+                              0x15, 0x00,                                                   //Logical  Minimun
+                              0x25, 0x01,                                                   //Logical  Maximun
+                              0x75, 0x01,                                                   //Report Size
+                              0x95, 0x0A,                                                   //Report Counet
+                              0x81, 0x02,                                                   //Input
+
+                              // 字节补全
+                              0x75, 0x01,                                                   //Report Size
+                              0x95, 0x06,                                                   //Report Counet
+                              0x81, 0x03,                                                   //Output
+                              0xC0};
 // 配置描述符
 const uint8_t MyCfgDescr[] = {
-    0x09,0x02,0x29,0x00,USB_INTERFACE_MAX_NUM,0x01,0x04,0xA0,0x23,               //配置描述符
+    0x09,0x02,0x29,0x00,USB_INTERFACE_MAX_NUM,0x01,0x04,0xA0,0xFA,               //配置描述符
     0x09,0x04,0x00,0x00,0x02,0x03,0x00,0x00,0x05,               //接口描述符
-    0x09,0x21,0x00,0x01,0x00,0x01,0x22,0x22,0x00,               //HID类描述符
+    0x09,0x21,0x00,0x01,0x00,0x01,0x22,sizeof(HIDDescr)&0xFF,(sizeof(HIDDescr)>>8)&0xFF,               //HID类描述符
     0x07,0x05,0x81,0x03,DevEP1SIZE,0x00,0x01,              //端点描述符
     0x07,0x05,0x01,0x03,DevEP1SIZE,0x00,0x01               //端点描述符
 };
 /*字符串描述符略*/
-/*HID类报表描述符*/
-const uint8_t HIDDescr[] = {  0x06, 0x00,0xff,
-                              0x09, 0x01,
-                              0xa1, 0x01,                                                   //集合开始
-                              0x09, 0x02,                                                   //Usage Page  用法
-                              0x15, 0x00,                                                   //Logical  Minimun
-                              0x26, 0x00,0xff,                                              //Logical  Maximun
-                              0x75, 0x08,                                                   //Report Size
-                              0x95, 0x40,                                                   //Report Counet
-                              0x81, 0x06,                                                   //Input
-                              0x09, 0x02,                                                   //Usage Page  用法
-                              0x15, 0x00,                                                   //Logical  Minimun
-                              0x26, 0x00,0xff,                                              //Logical  Maximun
-                              0x75, 0x08,                                                   //Report Size
-                              0x95, 0x40,                                                   //Report Counet
-                              0x91, 0x06,                                                   //Output
-                              0xC0};
 // 语言描述符
 const uint8_t MyLangDescr[] = {0x04, 0x03, 0x09, 0x04};
 // 厂家信息
-const uint8_t MyManuInfo[] = {0x0E, 0x03, 'w', 0, 'c', 0, 'h', 0, '.', 0, 'c', 0, 'n', 0};
+const uint8_t MyManuInfo[] = {
+    0x18, 0x03,                     // 长度 24，类型 3（字符串）
+    'B', 0x00, 'l', 0x00,           // B l
+    'a', 0x00, 'c', 0x00,           // a c
+    'k', 0x00, ' ', 0x00,           // k (空格)
+    'C', 0x00, 'o', 0x00,           // C o
+    'a', 0x00, 's', 0x00,           // a s
+    't', 0x00                       // t
+};
 // 产品信息
-const uint8_t MyProdInfo[] = {0x0C, 0x03, 'C', 0, 'H', 0, '5', 0, '8', 0, 'x', 0};
+const uint8_t MyProdInfo[] = {
+    0x1E, 0x03,                     // 长度 30，类型 3（字符串）
+    'C', 0x00, 'H', 0x00,           // C H
+    '5', 0x00, '8', 0x00,           // 5 8
+    '2', 0x00, ' ', 0x00,           // 2 (空格)
+    'k', 0x00, 'e', 0x00,           // k e
+    'y', 0x00, 'b', 0x00,           // y b
+    'o', 0x00, 'a', 0x00,           // o a
+    'r', 0x00, 'd', 0x00            // r d
+};
 
 /**********************************************************/
 uint8_t        DevConfig, Ready = 0;
@@ -52,8 +72,8 @@ extern PUINT8 pEP1_RAM_Addr;
 /******** 用户自定义分配端点RAM ****************************************/
 __attribute__((aligned(4))) uint8_t EP0_Databuf[64 + 64 + 64]; //ep0(64)+ep4_out(64)+ep4_in(64)
 __attribute__((aligned(4))) uint8_t EP1_Databuf[64 + 64];      //ep1_out(64)+ep1_in(64)
-__attribute__((aligned(4))) uint8_t EP2_Databuf[64 + 64];      //ep2_out(64)+ep2_in(64)
-__attribute__((aligned(4))) uint8_t EP3_Databuf[64 + 64];      //ep3_out(64)+ep3_in(64)
+// __attribute__((aligned(4))) uint8_t EP2_Databuf[64 + 64];      //ep2_out(64)+ep2_in(64)
+// __attribute__((aligned(4))) uint8_t EP3_Databuf[64 + 64];      //ep3_out(64)+ep3_in(64)
 
 /*********************************************************************
  * @fn      USB_DevTransProcess
@@ -466,8 +486,11 @@ void USB_DevTransProcess(void)  //USB设备传输中断处理
  */
 void DevHIDReport(uint8_t *pdata, uint8_t len)
 {
+    if (len > DevEP1SIZE) {
+        len = DevEP1SIZE;   // 防止溢出
+    }
     memcpy(pEP1_IN_DataBuf, pdata, len);
-    DevEP1_IN_Deal(DevEP1SIZE);
+    DevEP1_IN_Deal(len);
 }
 
 uint8_t HID_IsReady(void)
