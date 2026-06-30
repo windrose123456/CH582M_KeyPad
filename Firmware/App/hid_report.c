@@ -9,7 +9,7 @@ const uint8_t HIDDescr[] = {  0x05, 0x01,                                       
                               0x09, 0x06,                                                   //Keyboard   
                               0xA1, 0x01,                                                   //集合开始
 
-                              // 普通按键 0-9
+                              // 普通按键
                               0x05, 0x07,                                                   //Keyboard Application
                               0x19, 0x04,                                                   //Uasge  Minimun
                               0x29, 0x0D,                                                   //Usage  Maximun
@@ -22,7 +22,7 @@ const uint8_t HIDDescr[] = {  0x05, 0x01,                                       
                               // 字节补全
                               0x75, 0x01,                                                   //Report Size
                               0x95, 0x06,                                                   //Report Counet
-                              0x81, 0x03,                                                   //Output
+                              0x81, 0x03,                                                   //Input (Const)
                               0xC0};
 // 配置描述符
 const uint8_t MyCfgDescr[] = {

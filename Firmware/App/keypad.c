@@ -1,7 +1,10 @@
 #include "keypad.h"
 // 矩阵扫描与防抖。管理所有按键的物理读取、消抖状态机。
 
-#define KEY_NUM         10
+#define KEY_NUM         1
+
+// 按键状态变化标志
+volatile uint8_t g_key_changed = 0;
 
 // 按键状态数组（当前状态）
 static uint8_t s_keyState[1] = {KEY_RELEASED};

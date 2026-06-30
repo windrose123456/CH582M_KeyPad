@@ -13,6 +13,8 @@
 #define KEY_PRESSED     0
 #define KEY_RELEASED    1
 
+extern volatile uint8_t g_key_changed;   
+
 void KeyPad_Init(void);
 uint8_t KeyPad_Scan(void);
 uint8_t KeyPad_GetState(uint8_t key_index);

@@ -46,6 +46,29 @@ void DebugInit(void)
     UART1_DefInit();
 }
 
+void SysTick_Init(void) {
+    // SysTick_Config 的参数是两次中断之间的时钟周期数
+    // FREQ_SYS / 1000 = 60000，即 60M 个时钟周期计满一次，时间为 1ms[reference:3][reference:4]
+    SysTick_Config(FREQ_SYS / 1000);
+}
+
+// SysTick 的中断服务函数，函数名是固定的
+__INTERRUPT __HIGH_CODE void SysTick_Handler(void) {
+    SysTick->SR = 0; // 清除中断标志，这是必须的操作[reference:5]
+    
+    // static uint16_t count = 0; // 测试确实为1ms中断一次
+    // count++;
+    // if(count >= 1000)
+    // {
+    //     printf("1111\n");
+    //     count = 0;
+    // }
+    // 扫描按键，若状态变化则返回非0
+    if (KeyPad_Scan()) {
+        g_key_changed = 1;   // 置位变化标志
+    }
+}
+
 /*********************************************************************
  * @fn      main
  *
@@ -68,20 +91,16 @@ int main()
     PFIC_EnableIRQ(USB_IRQn);       //启用中断向量
     mDelaymS(100);
 
-    // uint8_t USB_Data[10] = { 0 };
-    // USB_Data[0] = 0x05;
-    // USB_Data[1] = 0x10;
-    // USB_Data[2] = 0x20;
-    // USB_Data[3] = 0x11;
-
     KeyPad_Init();
+    SysTick_Init();   // 配置 1ms 定时中断，加入蓝牙后需删除，KeyPad_Scan()改为在 TMOS 任务中定时调用
 
     while(1)
     {
-        // 1. 调用扫描函数（建议放在1ms定时器中断中，这里只是演示）
-
-        if (KeyPad_Scan()) {
-            // 3. 仅当USB活跃时才发送
+        // 检查按键是否发生变化
+        if (g_key_changed) {
+            g_key_changed = 0;   // 清除标志
+            
+            // 只有USB就绪时才发送报告
             if (HID_IsReady()) {
                 uint16_t bitmap = KeyPad_GetBitmap();
                 uint8_t report[2];
@@ -91,8 +110,7 @@ int main()
             }
         }
         
-        // 其他任务...
-        mDelaymS(1);
+        __WFI();
     }
 }
 
