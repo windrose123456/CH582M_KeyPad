@@ -56,3 +56,7 @@ PickAndPlace/
 # MounRiver Studio 工作区缓存和编译输出
 Firmware/.mrs/
 Firmware/obj/
+
+# AI 辅助开发配置
+AGENTS.md
+.mimocode/
