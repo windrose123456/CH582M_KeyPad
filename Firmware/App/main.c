@@ -13,7 +13,6 @@
 #include "CH58x_common.h"
 #include "hid_report.h"
 #include "keypad.h"
-#include "keymap.h"
 
 /*********************************************************************
  * @fn      DevWakeup

@@ -1,88 +1,76 @@
 #include "keypad.h"
 // 矩阵扫描与防抖。管理所有按键的物理读取、消抖状态机。
 
-#define KEY_NUM         1
+// 引脚数组，顺序与索引对应
+static const uint32_t key_pins[KEY_NUM] = {
+    KEY_1_PIN,   // index 0
+    KEY_2_PIN,   // index 1
+    KEY_3_PIN,   // index 2
+    KEY_4_PIN,   // index 3
+    KEY_5_PIN,   // index 4
+    KEY_6_PIN,   // index 5
+    KEY_7_PIN,   // index 6
+    KEY_8_PIN,   // index 7
+    KEY_9_PIN,   // index 8
+    KEY_0_PIN,   // index 9   
+    KEY_ENTER_PIN, // index 10 // PB18
+    KEY_DELETE_PIN,// index 11 // PB19
+    KEY_CTRL_PIN,  // index 12 // PB20
+    KEY_ALT_PIN,   // index 13 // PB21
+    KEY_WIN_PIN    // index 14 // PB22
+};
 
 // 按键状态变化标志
 volatile uint8_t g_key_changed = 0;
 
 // 按键状态数组（当前状态）
-static uint8_t s_keyState[1] = {KEY_RELEASED};
+static uint8_t s_keyState[KEY_NUM] = {KEY_RELEASED};
 
 // 防抖计数器（用于状态机）
-static uint8_t s_debounceCount[1] = {0};
+static uint8_t s_debounceCount[KEY_NUM] = {0};
 
-// 读取当前引脚电平（转换为逻辑值）
-static uint8_t KeyPad_ReadPin(void)
-{
-    // GPIOB的输入数据寄存器是 R32_PB_IN
-    // 或者使用库函数：GPIOB_ReadPortPin(KEY_PIN)
-    uint8_t pinLevel = (GPIOB_ReadPort() & KEY_PIN) ? 1 : 0;
-    return pinLevel;
+// 读取某个引脚的逻辑电平
+static uint8_t KeyPad_ReadPin(uint32_t pin) {
+    return (GPIOB_ReadPort() & pin) ? 1 : 0;   // 高电平为1，低电平为0
 }
 
 /**
- * @brief 初始化按键GPIO
- *        配置PB1为输入，上拉模式（适用于按键接GND）
+ * @brief 初始化所有按键GPIO（输入上拉）
  */
-void KeyPad_Init(void)
-{    
-    // 1. 配置PB1为输入，上拉
-    //    PB1 使用 GPIO_ModeIN_PU（输入上拉）
-    GPIOB_ModeCfg(KEY_PIN, GPIO_ModeIN_PU);
-    
-    // 2. 读取一次初始状态，用于后续防抖
-    s_keyState[0] = KeyPad_ReadPin();
-    s_debounceCount[0] = 0;
+void KeyPad_Init(void) {
+    for (int i = 0; i < KEY_NUM; i++) {
+        GPIOB_ModeCfg(key_pins[i], GPIO_ModeIN_PU);   // 上拉输入
+        s_keyState[i] = KeyPad_ReadPin(key_pins[i]); // 读取初始电平
+        s_debounceCount[i] = 0;
+    }
 }
 
 /**
- * @brief 扫描单个按键（非阻塞防抖状态机）
- *        建议在1ms定时器中断或主循环中每1ms调用一次
- * @return 1 如果按键状态发生变化，0 否则
+ * @brief 扫描所有按键，带防抖状态机（建议1ms调用一次）
+ * @return 1 表示有任意按键状态发生变化，0 表示无变化
  */
-uint8_t KeyPad_Scan(void)
-{
+uint8_t KeyPad_Scan(void) {
     uint8_t changed = 0;
-    uint8_t currentPin = KeyPad_ReadPin();
-    
-    // 状态机逻辑：
-    // 如果当前读取的电平 等于 当前认定的状态，计数器清零
-    // 如果 不等于，计数器累加，累加到5次（5ms）确认状态变化
-    if (currentPin == s_keyState[0]) {
-        // 电平稳定，计数器清零
-        s_debounceCount[0] = 0;
-    } else {
-        // 电平发生抖动，计数器累加
-        s_debounceCount[0]++;
-        // 如果连续5ms检测到相同的“新”电平，则认为状态稳定
-        if (s_debounceCount[0] >= 5) {
-            // 更新状态
-            s_keyState[0] = currentPin;
-            s_debounceCount[0] = 0;
-            changed = 1;   // 标记状态发生了变化
+    for (int i = 0; i < KEY_NUM; i++) {
+        uint8_t current = KeyPad_ReadPin(key_pins[i]);
+        if (current == s_keyState[i]) {
+            s_debounceCount[i] = 0;   // 稳定，计数器清零
+        } else {
+            s_debounceCount[i]++;     // 抖动，累加
+            if (s_debounceCount[i] >= 5) {   // 连续5ms稳定
+                s_keyState[i] = current;
+                s_debounceCount[i] = 0;
+                changed = 1;          // 标记状态变化
+            }
         }
     }
-    
     return changed;
 }
 
 /**
- * @brief 获取指定按键的当前状态（已消抖）
- * @param key_index 按键索引（0 ~ KEY_NUM-1）
- * @return KEY_PRESSED 或 KEY_RELEASED
+ * @brief 获取当前按键位图（低位bit0对应0键，bit1对应1键...）
  */
-uint8_t KeyPad_GetState(uint8_t key_index)
-{
-    // 虽然现在只有一个键，但为了将来扩展，保留key_index参数
-    if (key_index == 0) {
-        return s_keyState[0];
-    }
-    return KEY_RELEASED;  // 无效索引默认返回释放
-}
-
-uint16_t KeyPad_GetBitmap(void)
-{
+uint16_t KeyPad_GetBitmap(void) {
     uint16_t bitmap = 0;
     for (int i = 0; i < KEY_NUM; i++) {
         if (s_keyState[i] == KEY_PRESSED) {
@@ -91,3 +79,6 @@ uint16_t KeyPad_GetBitmap(void)
     }
     return bitmap;
 }
+
+
+
