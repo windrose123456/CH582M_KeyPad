@@ -315,6 +315,35 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
         tmos_start_task(hidEmuTaskId, START_REPORT_EVT, 2000);
         return (events ^ START_REPORT_EVT);
     }
+
+    // ===== 按键扫描事件 =====
+    if (events & START_KEYSCAN_EVT)
+    {
+        static uint16_t last_bitmap = 0;
+        uint16_t current_bitmap = KeyPad_GetBitmap();
+        // 键值发生变化
+        if (current_bitmap != last_bitmap)
+        {
+            // 确认USB方式还是蓝牙方式发送，蓝牙在 START_REPORT_EVT 中发送
+            // if (current_bitmap != 0)
+            // {
+            //     // 有键按下 → 发送按下报告
+            //     hidEmuSendKbdReport(current_bitmap);
+            // }
+            // else
+            // {
+            //     // 全部释放 → 发送全零释放报告
+            //     hidEmuSendRelease();
+            // }
+            last_bitmap = current_bitmap;
+        }
+
+        // 10ms后再次扫描（自我循环）
+        tmos_start_task(task_id, START_KEYSCAN_EVT, 3);
+        return (events ^ START_KEYSCAN_EVT);
+
+    }
+
     return 0;
 }
 
