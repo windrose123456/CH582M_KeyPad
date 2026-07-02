@@ -18,4 +18,8 @@ void OLED_ShowChar(uint8_t x, uint8_t y, char ch, uint8_t width, uint8_t height)
 void OLED_ShowString(uint8_t x, uint8_t y, const char *str, uint8_t width, uint8_t height);
 void OLED_ShowNum(uint8_t x, uint8_t y, uint32_t num, uint8_t len, uint8_t width, uint8_t height);
 
+// 屏幕未运行，ch582M IIC波形正常，STM32F103烧录商家固件不能运行，大概率屏幕问题，先弃了。
+// 调试用
+void IIC_test_func(void);
+
 #endif

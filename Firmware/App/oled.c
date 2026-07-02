@@ -333,3 +333,13 @@ void OLED_ShowNum(uint8_t x, uint8_t y, uint32_t num, uint8_t len, uint8_t width
     str[len] = '\0';
     OLED_ShowString(x, y, str, width, height);
 }
+
+
+void IIC_test_func()
+{
+    I2C_Start();
+    I2C_WriteByte(0x78);  // 试另一个地址
+    I2C_WriteByte(0x00);
+    I2C_WriteByte(0xAE);  // 关闭显示命令（最安全的测试命令）
+    I2C_Stop();
+}

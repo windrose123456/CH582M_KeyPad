@@ -60,7 +60,7 @@ __INTERRUPT __HIGH_CODE void SysTick_Handler(void) {
     // count++;
     // if(count >= 1000)
     // {
-    //     printf("1111\n");
+        
     //     count = 0;
     // }
     // 扫描按键，若状态变化则返回非0
@@ -93,13 +93,6 @@ int main()
 
     KeyPad_Init();
     SysTick_Init();   // 配置 1ms 定时中断，加入蓝牙后需删除，KeyPad_Scan()改为在 TMOS 任务中定时调用
-
-    OLED_Init();
-    OLED_Clear();
-    OLED_ShowChar(0, 0, 'A', 8, 8);   // 使用 8x8
-    OLED_ShowChar(0, 8, 'B', 6, 8);   // 使用 6x8
-    OLED_ShowNum(80, 16, 2026, 4, 8, 8);
-    OLED_Update();
 
     while(1)
     {
