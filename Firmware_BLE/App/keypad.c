@@ -43,11 +43,6 @@ void KeyPad_Init(void) {
         s_keyState[i] = KeyPad_ReadPin(key_pins[i]); // 读取初始电平
         s_debounceCount[i] = 0;
     }
-
-    // 注册TMOS任务
-    hidEmuTaskId = TMOS_ProcessEventRegister(hidEmuProcessEvent);
-    // 启动1ms按键扫描
-    tmos_start_task(hidEmuTaskId, START_KEYSCAN_EVT, 3);  // 16个0.625ms = 10ms
 }
 
 /**

@@ -16,6 +16,7 @@
 #include "HAL.h"
 #include "hiddev.h"
 #include "hidkbd.h"
+#include "keypad.h"
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -71,6 +72,7 @@ int main(void)
     GAPRole_PeripheralInit();
     HidDev_Init();
     HidEmu_Init();
+    KeyPad_Init();
     Main_Circulation();
 }
 

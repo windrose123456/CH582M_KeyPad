@@ -5,26 +5,6 @@
 // 设备描述符
 const uint8_t MyDevDescr[] = {0x12,0x01,0x10,0x01,0x00,0x00,0x00,DevEP0SIZE,0x27,0x95,0x27,0x95,0x00,0x01,0x01,0x02,0x00,0x01};
 
-// const uint8_t HIDDescr[] = {  0x05, 0x01,                                                   //Generic Desktop
-//                               0x09, 0x06,                                                   //Keyboard   
-//                               0xA1, 0x01,                                                   //??????
-
-//                               // ???????
-//                               0x05, 0x07,                                                   //Keyboard Application
-//                               0x19, 0x04,                                                   //Uasge  Minimun
-//                               0x29, 0x0D,                                                   //Usage  Maximun
-//                               0x15, 0x00,                                                   //Logical  Minimun
-//                               0x25, 0x01,                                                   //Logical  Maximun
-//                               0x75, 0x01,                                                   //Report Size
-//                               0x95, 0x0A,                                                   //Report Counet
-//                               0x81, 0x02,                                                   //Input
-
-//                               // ?????
-//                               0x75, 0x01,                                                   //Report Size
-//                               0x95, 0x06,                                                   //Report Counet
-//                               0x81, 0x03,                                                   //Input (Const)
-//                               0xC0};
-
 /*HID类报表描述符*/
 const uint8_t HIDDescr[] = {0x05, 0x01,                                                   //Generic Desktop
                             0x09, 0x06,                                                   //Keyboard   
@@ -86,66 +66,6 @@ const uint8_t HIDDescr[] = {0x05, 0x01,                                         
                             0x81, 0x03,                                                   //Input (Const)
                             0xC0};
 
-// /*HID类报表描述符*/
-// const uint8_t HIDDescr[] = {0x05, 0x01,                                                   //Generic Desktop
-//                             0x09, 0x06,                                                   //Keyboard   
-//                             0xA1, 0x01,                                                   //集合开始
-
-//                             // ----- 第一段：数字1~9、0、Enter（0x1E ~ 0x28，共11个）-----
-//                             0x05, 0x07,        // Usage Page (Keyboard)
-//                             0x19, 0x1E,        // Usage Minimum (1)
-//                             0x29, 0x28,        // Usage Maximum (Enter)
-//                             0x15, 0x00,        // Logical Minimum (0)
-//                             0x25, 0x01,        // Logical Maximum (1)
-//                             0x75, 0x01,        // Report Size (1 bit)
-//                             0x95, 0x0B,        // Report Count (11)    // 占11位
-//                             0x81, 0x02,        // Input (Data,Var,Abs)
-
-//                             // ----- 第二段：Delete（0x4C）-----
-//                             0x05, 0x07,        // Usage Page (Keyboard)
-//                             0x19, 0x4C,        // Usage Minimum (Delete)
-//                             0x29, 0x4C,        // Usage Maximum (Delete)
-//                             0x15, 0x00,        // Logical Minimum (0)
-//                             0x25, 0x01,        // Logical Maximum (1)
-//                             0x75, 0x01,        // Report Size (1 bit)
-//                             0x95, 0x01,        // Report Count (1)     // 占1位
-//                             0x81, 0x02,        // Input (Data,Var,Abs)
-
-//                             // ----- 第三段：Ctrl（0xE0）-----
-//                             0x05, 0x07,        // Usage Page (Keyboard)
-//                             0x19, 0xE0,        // Usage Minimum (Ctrl)
-//                             0x29, 0xE0,        // Usage Maximum (Ctrl)
-//                             0x15, 0x00,        // Logical Minimum (0)
-//                             0x25, 0x01,        // Logical Maximum (1)
-//                             0x75, 0x01,        // Report Size (1 bit)
-//                             0x95, 0x01,        // Report Count (1)     // 占1位
-//                             0x81, 0x02,        // Input (Data,Var,Abs)
-
-//                             // ----- 第四段：Alt（0xE2）-----
-//                             0x05, 0x07,        // Usage Page (Keyboard)
-//                             0x19, 0xE2,        // Usage Minimum (Alt)
-//                             0x29, 0xE2,        // Usage Maximum (Alt)
-//                             0x15, 0x00,        // Logical Minimum (0)
-//                             0x25, 0x01,        // Logical Maximum (1)
-//                             0x75, 0x01,        // Report Size (1 bit)
-//                             0x95, 0x01,        // Report Count (1)     // 占1位
-//                             0x81, 0x02,        // Input (Data,Var,Abs)
-
-//                             // ----- 第五段：Win（0xE3）-----
-//                             0x05, 0x07,        // Usage Page (Keyboard)
-//                             0x19, 0xE3,        // Usage Minimum (Win)
-//                             0x29, 0xE3,        // Usage Maximum (Win)
-//                             0x15, 0x00,        // Logical Minimum (0)
-//                             0x25, 0x01,        // Logical Maximum (1)
-//                             0x75, 0x01,        // Report Size (1 bit)
-//                             0x95, 0x01,        // Report Count (1)     // 占1位
-//                             0x81, 0x02,        // Input (Data,Var,Abs)
-
-//                             // ----- 补全1个常量位（凑成2字节 = 16位）-----
-//                             0x75, 0x01,        // Report Size (1 bit)
-//                             0x95, 0x01,        // Report Count (1)
-//                             0x81, 0x03,        // Input (Const)
-//                             0xC0};
 // 配置描述符
 const uint8_t MyCfgDescr[] = {
     0x09,0x02,0x29,0x00,USB_INTERFACE_MAX_NUM,0x01,0x04,0xA0,0xFA,               //配置描述符

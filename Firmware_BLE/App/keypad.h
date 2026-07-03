@@ -5,6 +5,8 @@
 
 // 按键数量
 #define KEY_NUM         15
+// 按键扫描频率
+#define KEYSCAN_INTERVAL_TICK     3    // 3 × 0.625ms ≈ 1.875ms ≈ 533Hz
 
 // 15个按键的引脚定义（PB0~PB14）
 #define KEY_1_PIN       GPIO_Pin_0

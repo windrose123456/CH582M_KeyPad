@@ -19,12 +19,12 @@
 #include "hidkbdservice.h"
 #include "hiddev.h"
 #include "hidkbd.h"
-
+#include "keypad.h"
 /*********************************************************************
  * MACROS
  */
 // HID keyboard input report length
-#define HID_KEYBOARD_IN_RPT_LEN              8
+#define HID_KEYBOARD_IN_RPT_LEN              2
 
 // HID LED output report length
 #define HID_LED_OUT_RPT_LEN                  1
@@ -162,7 +162,7 @@ static uint16_t hidEmuConnHandle = GAP_CONNHANDLE_INIT;
  */
 
 static void    hidEmu_ProcessTMOSMsg(tmos_event_hdr_t *pMsg);
-static void    hidEmuSendKbdReport(uint8_t keycode);
+static void    hidEmuSendKbdReport(uint16_t bitmap);
 static uint8_t hidEmuRcvReport(uint8_t len, uint8_t *pData);
 static uint8_t hidEmuRptCB(uint8_t id, uint8_t type, uint16_t uuid,
                            uint8_t oper, uint16_t *pLen, uint8_t *pData);
@@ -243,6 +243,9 @@ void HidEmu_Init()
 
     // Setup a delayed profile startup
     tmos_set_event(hidEmuTaskId, START_DEVICE_EVT);
+
+    // ===== 新增：启动按键扫描 =====
+    tmos_start_task(hidEmuTaskId, START_KEYSCAN_EVT, KEYSCAN_INTERVAL_TICK);
 }
 
 /*********************************************************************
@@ -307,39 +310,41 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
 
     if(events & START_REPORT_EVT)
     {
-        hidEmuSendKbdReport(send_char);
-        send_char++;
-        if(send_char >= 29)
-            send_char = 4;
-        hidEmuSendKbdReport(0x00);
-        tmos_start_task(hidEmuTaskId, START_REPORT_EVT, 2000);
+        // hidEmuSendKbdReport(send_char);
+        // send_char++;
+        // if(send_char >= 29)
+        //     send_char = 4;
+        // hidEmuSendKbdReport(0x00);
+        //tmos_start_task(hidEmuTaskId, START_REPORT_EVT, 4000);
         return (events ^ START_REPORT_EVT);
     }
 
-    // ===== 按键扫描事件 =====
+    // ===== 按键扫描发送事件 =====
     if (events & START_KEYSCAN_EVT)
     {
+        KeyPad_Scan();
         static uint16_t last_bitmap = 0;
         uint16_t current_bitmap = KeyPad_GetBitmap();
         // 键值发生变化
         if (current_bitmap != last_bitmap)
         {
-            // 确认USB方式还是蓝牙方式发送，蓝牙在 START_REPORT_EVT 中发送
-            // if (current_bitmap != 0)
-            // {
-            //     // 有键按下 → 发送按下报告
-            //     hidEmuSendKbdReport(current_bitmap);
-            // }
-            // else
-            // {
-            //     // 全部释放 → 发送全零释放报告
-            //     hidEmuSendRelease();
-            // }
+            // 确认USB方式还是蓝牙方式发送
+            if (current_bitmap != 0)
+            {
+                // 有键按下 → 发送按下报告
+                //hidEmuSendKbdReport(current_bitmap);
+                hidEmuSendKbdReport(current_bitmap); // 发送A键测试
+            }
+            else
+            {
+                // 全部释放 → 发送全零释放报告
+                hidEmuSendKbdReport(0x00);
+            }
+            // printf("current_bitmap: %d\n", current_bitmap);
             last_bitmap = current_bitmap;
         }
-
-        // 10ms后再次扫描（自我循环）
-        tmos_start_task(task_id, START_KEYSCAN_EVT, 3);
+        // 再次扫描（自我循环）
+        tmos_start_task(task_id, START_KEYSCAN_EVT, KEYSCAN_INTERVAL_TICK);
         return (events ^ START_KEYSCAN_EVT);
 
     }
@@ -374,21 +379,13 @@ static void hidEmu_ProcessTMOSMsg(tmos_event_hdr_t *pMsg)
  *
  * @return  none
  */
-static void hidEmuSendKbdReport(uint8_t keycode)
+static void hidEmuSendKbdReport(uint16_t bitmap)
 {
-    uint8_t buf[HID_KEYBOARD_IN_RPT_LEN];
-
-    buf[0] = 0;       // Modifier keys
-    buf[1] = 0;       // Reserved
-    buf[2] = keycode; // Keycode 1
-    buf[3] = 0;       // Keycode 2
-    buf[4] = 0;       // Keycode 3
-    buf[5] = 0;       // Keycode 4
-    buf[6] = 0;       // Keycode 5
-    buf[7] = 0;       // Keycode 6
-
+    uint8_t report[HID_KEYBOARD_IN_RPT_LEN];
+    report[0] = bitmap & 0xFF;
+    report[1] = (bitmap >> 8) & 0xFF;
     HidDev_Report(HID_RPT_ID_KEY_IN, HID_REPORT_TYPE_INPUT,
-                  HID_KEYBOARD_IN_RPT_LEN, buf);
+                  HID_KEYBOARD_IN_RPT_LEN, report);
 }
 
 /*********************************************************************

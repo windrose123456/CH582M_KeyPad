@@ -84,53 +84,114 @@ static const uint8_t hidInfo[HID_INFORMATION_LEN] = {
     HID_FEATURE_FLAGS                     // Flags
 };
 
+/*HID类报表描述符*/
+static const uint8_t hidReportMap[] = {0x05, 0x01,                                                   //Generic Desktop
+                            0x09, 0x06,                                                   //Keyboard   
+                            0xA1, 0x01,                                                   //集合开始
+
+                            // ----- 第一段：数字1~9、0、Enter（0x1E ~ 0x28，共11个）-----
+                            0x05, 0x07,                                                   //Keyboard Application
+                            0x19, 0x1E,                                                   //Uasge  Minimun
+                            0x29, 0x28,                                                   //Usage  Maximun
+                            0x15, 0x00,                                                   //Logical  Minimun
+                            0x25, 0x01,                                                   //Logical  Maximun
+                            0x75, 0x01,                                                   //Report Size
+                            0x95, 0x0B,                                                   //Report Counet
+                            0x81, 0x02,                                                   //Input
+
+                            // ----- 第二段：Delete（0x4C）-----
+                            0x05, 0x07,        // Usage Page (Keyboard)
+                            0x19, 0x4C,        // Usage Minimum (Delete)
+                            0x29, 0x4C,        // Usage Maximum (Delete)
+                            0x15, 0x00,        // Logical Minimum (0)
+                            0x25, 0x01,        // Logical Maximum (1)
+                            0x75, 0x01,        // Report Size (1 bit)
+                            0x95, 0x01,        // Report Count (1)     // 占1位
+                            0x81, 0x02,        // Input (Data,Var,Abs)
+
+                            // ----- 第三段：Ctrl（0xE0）-----
+                            0x05, 0x07,        // Usage Page (Keyboard)
+                            0x19, 0xE0,        // Usage Minimum (Ctrl)
+                            0x29, 0xE0,        // Usage Maximum (Ctrl)
+                            0x15, 0x00,        // Logical Minimum (0)
+                            0x25, 0x01,        // Logical Maximum (1)
+                            0x75, 0x01,        // Report Size (1 bit)
+                            0x95, 0x01,        // Report Count (1)     // 占1位
+                            0x81, 0x02,        // Input (Data,Var,Abs)
+
+                            // ----- 第四段：Alt（0xE2）-----
+                            0x05, 0x07,        // Usage Page (Keyboard)
+                            0x19, 0xE2,        // Usage Minimum (Alt)
+                            0x29, 0xE2,        // Usage Maximum (Alt)
+                            0x15, 0x00,        // Logical Minimum (0)
+                            0x25, 0x01,        // Logical Maximum (1)
+                            0x75, 0x01,        // Report Size (1 bit)
+                            0x95, 0x01,        // Report Count (1)     // 占1位
+                            0x81, 0x02,        // Input (Data,Var,Abs)
+
+                            // ----- 第五段：Win（0xE3）-----
+                            0x05, 0x07,        // Usage Page (Keyboard)
+                            0x19, 0xE3,        // Usage Minimum (Win)
+                            0x29, 0xE3,        // Usage Maximum (Win)
+                            0x15, 0x00,        // Logical Minimum (0)
+                            0x25, 0x01,        // Logical Maximum (1)
+                            0x75, 0x01,        // Report Size (1 bit)
+                            0x95, 0x01,        // Report Count (1)     // 占1位
+                            0x81, 0x02,        // Input (Data,Var,Abs)
+
+                            // 字节补全
+                            0x75, 0x01,                                                   //Report Size
+                            0x95, 0x01,                                                   //Report Counet
+                            0x81, 0x03,                                                   //Input (Const)
+                            0xC0};
+
 // HID Report Map characteristic value
-static const uint8_t hidReportMap[] = {
-    0x05, 0x01, // Usage Pg (Generic Desktop)
-    0x09, 0x06, // Usage (Keyboard)
-    0xA1, 0x01, // Collection: (Application)
-                //
-    0x05, 0x07, // Usage Pg (Key Codes)
-    0x19, 0xE0, // Usage Min (224)
-    0x29, 0xE7, // Usage Max (231)
-    0x15, 0x00, // Log Min (0)
-    0x25, 0x01, // Log Max (1)
-                //
-                // Modifier byte
-    0x75, 0x01, // Report Size (1)
-    0x95, 0x08, // Report Count (8)
-    0x81, 0x02, // Input: (Data, Variable, Absolute)
-                //
-                // Reserved byte
-    0x95, 0x01, // Report Count (1)
-    0x75, 0x08, // Report Size (8)
-    0x81, 0x01, // Input: (Constant)
-                //
-                // LED report
-    0x95, 0x05, // Report Count (5)
-    0x75, 0x01, // Report Size (1)
-    0x05, 0x08, // Usage Pg (LEDs)
-    0x19, 0x01, // Usage Min (1)
-    0x29, 0x05, // Usage Max (5)
-    0x91, 0x02, // Output: (Data, Variable, Absolute)
-                //
-                // LED report padding
-    0x95, 0x01, // Report Count (1)
-    0x75, 0x03, // Report Size (3)
-    0x91, 0x01, // Output: (Constant)
-                //
-                // Key arrays (6 bytes)
-    0x95, 0x06, // Report Count (6)
-    0x75, 0x08, // Report Size (8)
-    0x15, 0x00, // Log Min (0)
-    0x25, 0x65, // Log Max (101)
-    0x05, 0x07, // Usage Pg (Key Codes)
-    0x19, 0x00, // Usage Min (0)
-    0x29, 0x65, // Usage Max (101)
-    0x81, 0x00, // Input: (Data, Array)
-                //
-    0xC0        // End Collection
-};
+// static const uint8_t hidReportMap[] = {
+//     0x05, 0x01, // Usage Pg (Generic Desktop)
+//     0x09, 0x06, // Usage (Keyboard)
+//     0xA1, 0x01, // Collection: (Application)
+//                 //
+//     0x05, 0x07, // Usage Pg (Key Codes)
+//     0x19, 0xE0, // Usage Min (224)
+//     0x29, 0xE7, // Usage Max (231)
+//     0x15, 0x00, // Log Min (0)
+//     0x25, 0x01, // Log Max (1)
+//                 //
+//                 // Modifier byte
+//     0x75, 0x01, // Report Size (1)
+//     0x95, 0x08, // Report Count (8)
+//     0x81, 0x02, // Input: (Data, Variable, Absolute)
+//                 //
+//                 // Reserved byte
+//     0x95, 0x01, // Report Count (1)
+//     0x75, 0x08, // Report Size (8)
+//     0x81, 0x01, // Input: (Constant)
+//                 //
+//                 // LED report
+//     0x95, 0x05, // Report Count (5)
+//     0x75, 0x01, // Report Size (1)
+//     0x05, 0x08, // Usage Pg (LEDs)
+//     0x19, 0x01, // Usage Min (1)
+//     0x29, 0x05, // Usage Max (5)
+//     0x91, 0x02, // Output: (Data, Variable, Absolute)
+//                 //
+//                 // LED report padding
+//     0x95, 0x01, // Report Count (1)
+//     0x75, 0x03, // Report Size (3)
+//     0x91, 0x01, // Output: (Constant)
+//                 //
+//                 // Key arrays (6 bytes)
+//     0x95, 0x06, // Report Count (6)
+//     0x75, 0x08, // Report Size (8)
+//     0x15, 0x00, // Log Min (0)
+//     0x25, 0x65, // Log Max (101)
+//     0x05, 0x07, // Usage Pg (Key Codes)
+//     0x19, 0x00, // Usage Min (0)
+//     0x29, 0x65, // Usage Max (101)
+//     0x81, 0x00, // Input: (Data, Array)
+//                 //
+//     0xC0        // End Collection
+// };
 
 // HID report map length
 uint16_t hidReportMapLen = sizeof(hidReportMap);
