@@ -375,7 +375,7 @@ static void hidEmu_ProcessTMOSMsg(tmos_event_hdr_t *pMsg)
  *
  * @brief   Build and send a HID keyboard report.
  *
- * @param   keycode - HID keycode.
+ * @param   bitmap - HID key bitmap.
  *
  * @return  none
  */
