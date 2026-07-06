@@ -20,6 +20,7 @@
 #include "hiddev.h"
 #include "hidkbd.h"
 #include "keypad.h"
+#include "hid_report.h"
 /*********************************************************************
  * MACROS
  */
@@ -328,19 +329,22 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
         // 键值发生变化
         if (current_bitmap != last_bitmap)
         {
+            extern uint8_t hidProtocolMode;
+            printf("proto_mode: %d, bitmap: 0x%04X\n", hidProtocolMode, current_bitmap);
+            printf("current_bitmap: %d\n", current_bitmap);
             // 确认USB方式还是蓝牙方式发送
-            if (current_bitmap != 0)
+            // 有键按下 → 发送按下报告
+            if (HID_IsReady()) 
             {
-                // 有键按下 → 发送按下报告
-                //hidEmuSendKbdReport(current_bitmap);
-                hidEmuSendKbdReport(current_bitmap); // 发送A键测试
+                uint8_t report[2];
+                report[0] = current_bitmap & 0xFF;
+                report[1] = (current_bitmap >> 8) & 0xFF;
+                DevHIDReport(report, 2);
             }
-            else
+            else 
             {
-                // 全部释放 → 发送全零释放报告
-                hidEmuSendKbdReport(0x00);
+                hidEmuSendKbdReport(current_bitmap); // 蓝牙发送A键测试
             }
-            // printf("current_bitmap: %d\n", current_bitmap);
             last_bitmap = current_bitmap;
         }
         // 再次扫描（自我循环）

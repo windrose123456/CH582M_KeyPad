@@ -17,6 +17,7 @@
 #include "hiddev.h"
 #include "hidkbd.h"
 #include "keypad.h"
+#include "hid_report.h"
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -26,6 +27,22 @@ __attribute__((aligned(4))) uint32_t MEM_BUF[BLE_MEMHEAP_SIZE / 4];
 #if(defined(BLE_MAC)) && (BLE_MAC == TRUE)
 const uint8_t MacAddr[6] = {0x84, 0xC2, 0xE4, 0x03, 0x02, 0x02};
 #endif
+
+/*********************************************************************
+ * @fn      DevWakeup
+ *
+ * @brief   设备模式唤醒主机
+ *
+ * @return  none
+ */
+void DevWakeup(void)
+{
+    R16_PIN_ANALOG_IE &= ~(RB_PIN_USB_DP_PU);
+    R8_UDEV_CTRL |= RB_UD_LOW_SPEED;
+    mDelaymS(2);
+    R8_UDEV_CTRL &= ~RB_UD_LOW_SPEED;
+    R16_PIN_ANALOG_IE |= RB_PIN_USB_DP_PU;
+}
 
 /*********************************************************************
  * @fn      Main_Circulation
@@ -72,8 +89,49 @@ int main(void)
     GAPRole_PeripheralInit();
     HidDev_Init();
     HidEmu_Init();
+
+    // USB init
+    // HID_InitUSBBuffer();
+    // USB_DeviceInit();
+    // PFIC_EnableIRQ(USB_IRQn);       //启用中断向量
+    // mDelaymS(100);
+
     KeyPad_Init();
     Main_Circulation();
 }
 
 /******************************** endfile @ main ******************************/
+
+
+/*********************************************************************
+ * @fn      DevEP1_OUT_Deal
+ *
+ * @brief   端点1数据处理，收到数据后取反再发出去。用户自行更改。
+ *
+ * @return  none
+ */
+void DevEP1_OUT_Deal(uint8_t l)
+{ /* 用户可自定义 */
+    uint8_t i;
+
+    for(i = 0; i < l; i++)
+    {
+        pEP1_IN_DataBuf[i] = ~pEP1_OUT_DataBuf[i];
+    }
+    DevEP1_IN_Deal(l);
+}
+
+
+/*********************************************************************
+ * @fn      USB_IRQHandler
+ *
+ * @brief   USB中断函数
+ *
+ * @return  none
+ */
+__attribute__((interrupt("WCH-Interrupt-fast")))
+__attribute__((section(".highcode")))
+void USB_IRQHandler(void) /* USB中断服务程序,使用寄存器组1 */
+{
+    USB_DevTransProcess();
+}
