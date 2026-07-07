@@ -296,6 +296,7 @@ uint8_t HidDev_Report(uint8_t id, uint8_t type, uint8_t len, uint8_t *pData)
         if(hidDevConnSecure)
         {
             // send report
+            printf("HidDev_Report func send\n");
             return hidDevSendReport(id, type, len, pData);
         }
     }
@@ -1055,6 +1056,7 @@ static uint8_t hidDevSendReport(uint8_t id, uint8_t type, uint8_t len, uint8_t *
             if(value & GATT_CLIENT_CFG_NOTIFY)
             {
                 // Send report notification
+                printf("hidDevSendReport func send\n");
                 state = HidDev_sendNoti(pRpt->handle, len, pData);
             }
         }
@@ -1086,6 +1088,7 @@ static uint8_t HidDev_sendNoti(uint16_t handle, uint8_t len, uint8_t *pData)
         tmos_memcpy(noti.pValue, pData, len);
 
         // Send notification
+        printf("HidDev_sendNoti func send\n");
         status = GATT_Notification(gapConnHandle, &noti, FALSE);
         if(status != SUCCESS)
         {

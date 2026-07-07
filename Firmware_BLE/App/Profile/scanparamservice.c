@@ -268,6 +268,9 @@ bStatus_t ScanParam_GetParameter(uint8_t param, void *value)
  */
 void ScanParam_RefreshNotify(uint16_t connHandle)
 {
+    // TODO: 临时屏蔽，疑似与HID Report Handle冲突导致复位误触发，待主功能完成后排查触发链
+    return;
+
     uint16_t value;
 
     value = GATTServApp_ReadCharCfg(connHandle, scanParamRefreshClientCharCfg);

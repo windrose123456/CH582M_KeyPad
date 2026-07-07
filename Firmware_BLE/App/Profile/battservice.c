@@ -460,6 +460,9 @@ static bStatus_t battWriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
  */
 static void battNotifyCB(linkDBItem_t *pLinkItem)
 {
+    // TODO: 临时屏蔽，疑似与HID Report Handle冲突导致复位误触发，待主功能完成后排查触发链
+    return;
+
     if(pLinkItem->stateFlags & LINK_CONNECTED)
     {
         uint16_t value = GATTServApp_ReadCharCfg(pLinkItem->connectionHandle,

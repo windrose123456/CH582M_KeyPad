@@ -315,7 +315,7 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
         // send_char++;
         // if(send_char >= 29)
         //     send_char = 4;
-        // hidEmuSendKbdReport(0x00);
+        // hidEmuSendKbdReport(0x0000);
         //tmos_start_task(hidEmuTaskId, START_REPORT_EVT, 4000);
         return (events ^ START_REPORT_EVT);
     }
@@ -339,11 +339,13 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
                 uint8_t report[2];
                 report[0] = current_bitmap & 0xFF;
                 report[1] = (current_bitmap >> 8) & 0xFF;
+                printf("USB send\n");
                 DevHIDReport(report, 2);
             }
             else 
             {
-                hidEmuSendKbdReport(current_bitmap); // À¶ÑÀ·¢ËÍA¼ü²âÊÔ
+                printf("BLE send\n");
+                hidEmuSendKbdReport(current_bitmap); // À¶ÑÀ·¢ËÍ
             }
             last_bitmap = current_bitmap;
         }
@@ -388,6 +390,7 @@ static void hidEmuSendKbdReport(uint16_t bitmap)
     uint8_t report[HID_KEYBOARD_IN_RPT_LEN];
     report[0] = bitmap & 0xFF;
     report[1] = (bitmap >> 8) & 0xFF;
+    printf("hidEmuSendKbdReport func send\n");
     HidDev_Report(HID_RPT_ID_KEY_IN, HID_REPORT_TYPE_INPUT,
                   HID_KEYBOARD_IN_RPT_LEN, report);
 }

@@ -91,12 +91,13 @@ int main(void)
     HidEmu_Init();
 
     // USB init
-    // HID_InitUSBBuffer();
-    // USB_DeviceInit();
-    // PFIC_EnableIRQ(USB_IRQn);       //启用中断向量
-    // mDelaymS(100);
+    HID_InitUSBBuffer();
+    USB_DeviceInit();
+    PFIC_EnableIRQ(USB_IRQn);       //启用中断向量
+    mDelaymS(100);
 
     KeyPad_Init();
+    printf("all device init done\n");
     Main_Circulation();
 }
 
