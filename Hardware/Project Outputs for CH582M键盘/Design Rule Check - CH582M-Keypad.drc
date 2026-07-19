@@ -1,0 +1,79 @@
+Protel Design System Design Rule Check
+PCB File : E:\WCH.CN\CH582M_KeyPad\Hardware\CH582M-Keypad.PcbDoc
+Date     : 2026/7/20
+Time     : 0:56:38
+
+Processing Rule : Clearance Constraint (Gap=6mil) (All),(All)
+   Violation between Clearance Constraint: (Collision < 6mil) Between Pad Free-1(2126.8mil,4651.7mil) on Top Layer And Region (0 hole(s)) Top Layer 
+   Violation between Clearance Constraint: (Collision < 6mil) Between Pad Free-2(2044mil,4652mil) on Top Layer And Region (0 hole(s)) Top Layer 
+   Violation between Clearance Constraint: (Collision < 6mil) Between Region (0 hole(s)) Top Layer And Track (2044mil,4609.543mil)(2044mil,4652mil) on Top Layer 
+   Violation between Clearance Constraint: (Collision < 6mil) Between Region (0 hole(s)) Top Layer And Track (2126.8mil,4649.35mil)(2126.8mil,4651.7mil) on Top Layer 
+   Violation between Clearance Constraint: (Collision < 6mil) Between Region (0 hole(s)) Top Layer And Track (2126.8mil,4649.35mil)(2130mil,4646.15mil) on Top Layer 
+   Violation between Clearance Constraint: (Collision < 6mil) Between Region (0 hole(s)) Top Layer And Track (2130mil,4493.787mil)(2130mil,4646.15mil) on Top Layer 
+Rule Violations :6
+
+Processing Rule : Clearance Constraint (Gap=10mil) (InPolygon),(All)
+Rule Violations :0
+
+Processing Rule : Short-Circuit Constraint (Allowed=No) (All),(All)
+   Violation between Short-Circuit Constraint: Between Pad Free-1(2126.8mil,4651.7mil) on Top Layer And Region (0 hole(s)) Top Layer Location : [X = 2126.8mil][Y = 4651.7mil]
+   Violation between Short-Circuit Constraint: Between Pad Free-2(2044mil,4652mil) on Top Layer And Region (0 hole(s)) Top Layer Location : [X = 2044mil][Y = 4652mil]
+   Violation between Short-Circuit Constraint: Between Region (0 hole(s)) Top Layer And Track (2044mil,4609.543mil)(2044mil,4652mil) on Top Layer Location : [X = 2044mil][Y = 4651.943mil]
+   Violation between Short-Circuit Constraint: Between Region (0 hole(s)) Top Layer And Track (2126.8mil,4649.35mil)(2126.8mil,4651.7mil) on Top Layer Location : [X = 2126.8mil][Y = 4650.532mil]
+   Violation between Short-Circuit Constraint: Between Region (0 hole(s)) Top Layer And Track (2126.8mil,4649.35mil)(2130mil,4646.15mil) on Top Layer Location : [X = 2128.4mil][Y = 4649.357mil]
+   Violation between Short-Circuit Constraint: Between Region (0 hole(s)) Top Layer And Track (2130mil,4493.787mil)(2130mil,4646.15mil) on Top Layer Location : [X = 2130mil][Y = 4647.757mil]
+Rule Violations :6
+
+Processing Rule : Un-Routed Net Constraint ( (All) )
+   Violation between Un-Routed Net Constraint: Region (0 hole(s)) Top Layer Dead Copper - Net Not Assigned.
+Rule Violations :1
+
+Processing Rule : Modified Polygon (Allow modified: No), (Allow shelved: No)
+Rule Violations :0
+
+Processing Rule : Width Constraint (Min=6mil) (Max=100mil) (Preferred=10mil) (All)
+Rule Violations :0
+
+Processing Rule : Power Plane Connect Rule(Relief Connect )(Expansion=20mil) (Conductor Width=10mil) (Air Gap=10mil) (Entries=4) (All)
+Rule Violations :0
+
+Processing Rule : Hole Size Constraint (Min=1mil) (Max=100mil) (All)
+   Violation between Hole Size Constraint: (106.3mil > 100mil) Pad EC1-6(4088.5mil,4544.8mil) on Multi-Layer Actual Slot Hole Width = 106.3mil
+   Violation between Hole Size Constraint: (106.3mil > 100mil) Pad EC1-7(4521.5mil,4542.8mil) on Multi-Layer Actual Slot Hole Width = 106.3mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(1949.2mil,1350mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(1949.2mil,2100mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(1949.2mil,2850mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(1949.2mil,3600mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(2699.2mil,1350mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(2699.2mil,2100mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(2699.2mil,2850mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(2699.2mil,3600mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(3449.2mil,1350mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(3449.2mil,2100mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(3449.2mil,2850mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(3449.2mil,3600mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(4199.2mil,1725mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(4199.2mil,2850mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (157.48mil > 100mil) Pad Free-1(4199.2mil,3600mil) on Multi-Layer Actual Hole Size = 157.48mil
+   Violation between Hole Size Constraint: (140mil > 100mil) Pad Free-3(1600mil,1545mil) on Multi-Layer Actual Hole Size = 140mil
+   Violation between Hole Size Constraint: (140mil > 100mil) Pad Free-3(1620mil,3855mil) on Multi-Layer Actual Hole Size = 140mil
+   Violation between Hole Size Constraint: (140mil > 100mil) Pad Free-3(4525mil,1190mil) on Multi-Layer Actual Hole Size = 140mil
+   Violation between Hole Size Constraint: (140mil > 100mil) Pad Free-3(4545mil,3820mil) on Multi-Layer Actual Hole Size = 140mil
+Rule Violations :21
+
+Processing Rule : Hole To Hole Clearance (Gap=10mil) (All),(All)
+Rule Violations :0
+
+Processing Rule : Silk to Silk (Clearance=10mil) (All),(All)
+Rule Violations :0
+
+Processing Rule : Net Antennae (Tolerance=0mil) (All)
+Rule Violations :0
+
+Processing Rule : Height Constraint (Min=0mil) (Max=1000mil) (Prefered=500mil) (All)
+Rule Violations :0
+
+
+Violations Detected : 34
+Waived Violations : 0
+Time Elapsed        : 00:00:02
