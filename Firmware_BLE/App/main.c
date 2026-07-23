@@ -18,6 +18,8 @@
 #include "hidkbd.h"
 #include "keypad.h"
 #include "hid_report.h"
+#include "fingerprint_drv.h"
+#include "ec11.h"
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -97,8 +99,11 @@ int main(void)
     mDelaymS(100);
 
     KeyPad_Init();
+    EC11_Init();
     printf("all device init done\n");
     Main_Circulation();
+
+    //在不同模式中，按键扫描频率可以不一致，BLE没必要这么快
 }
 
 /******************************** endfile @ main ******************************/

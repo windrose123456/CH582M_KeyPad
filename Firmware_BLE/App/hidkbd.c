@@ -21,6 +21,7 @@
 #include "hidkbd.h"
 #include "keypad.h"
 #include "hid_report.h"
+#include "ec11.h"
 /*********************************************************************
  * MACROS
  */
@@ -323,6 +324,38 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
     // ===== 按键扫描发送事件 =====
     if (events & START_KEYSCAN_EVT)
     {
+        // EC11旋钮
+        EC11_Scan();
+        // ----- 处理旋转事件 -----
+        int16_t step = EC11_GetStep();          // 获取累计步数（含加速度）
+        if (step != 0) {
+            // 这里可以根据 step 的正负和大小来控制音量
+            // 假设音量值范围为 0~100，步进累加
+            static int16_t volume = 50;         // 当前音量百分比
+            volume += step;
+            if (volume < 0) volume = 0;
+            if (volume > 100) volume = 100;
+
+            printf("Volume: %d%% (Step: %d)\r\n", volume, step);
+
+            // 实际控制硬件（例如 PWM 占空比）
+            // SetPWM_Duty(volume * 10);  // 假设 0~1000
+
+            // 处理完步进后，清空步数（或不清零，取决于你的应用）
+            EC11_ResetStep();
+        }
+
+        // ----- 处理按键事件 -----
+        EC11_KeyState_t key = EC11_GetKeyState();
+        static EC11_KeyState_t last_key = EC11_KEY_RELEASED;
+        if (key == EC11_KEY_PRESSED && last_key == EC11_KEY_RELEASED) {
+            // 检测到按键按下（上升沿，即从释放到按下）
+            printf("Volume Key Pressed!\r\n");
+            // 例如：静音切换
+        }
+        last_key = key;
+
+
         KeyPad_Scan();
         static uint16_t last_bitmap = 0;
         uint16_t current_bitmap = KeyPad_GetBitmap();
