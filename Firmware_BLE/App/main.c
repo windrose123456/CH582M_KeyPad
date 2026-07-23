@@ -20,6 +20,8 @@
 #include "hid_report.h"
 #include "fingerprint_drv.h"
 #include "ec11.h"
+#include "ws2812b.h"
+#include "battery.h"
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -100,6 +102,8 @@ int main(void)
 
     KeyPad_Init();
     EC11_Init();
+    WS2812B_Init();
+    Battery_Init();
     printf("all device init done\n");
     Main_Circulation();
 
