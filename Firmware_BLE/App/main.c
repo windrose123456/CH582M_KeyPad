@@ -82,10 +82,13 @@ int main(void)
     GPIOA_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
     GPIOB_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
 #endif
-#ifdef DEBUG
-    GPIOA_SetBits(bTXD1);
-    GPIOA_ModeCfg(bTXD1, GPIO_ModeOut_PP_5mA);
-    UART1_DefInit();
+#ifdef DEBUG 
+    // GPIOA_SetBits(bTXD1);
+    // GPIOA_ModeCfg(bTXD1, GPIO_ModeOut_PP_5mA);
+    // UART1_DefInit();
+    GPIOB_SetBits(bTXD0);
+    GPIOB_ModeCfg(bTXD0, GPIO_ModeOut_PP_5mA);
+    UART0_DefInit();
 #endif
     PRINT("%s\n", VER_LIB);
     CH58X_BLEInit();
@@ -104,6 +107,7 @@ int main(void)
     EC11_Init();
     WS2812B_Init();
     Battery_Init();
+    FP_Init();
     printf("all device init done\n");
     Main_Circulation();
 

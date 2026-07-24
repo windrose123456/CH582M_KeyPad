@@ -135,7 +135,7 @@
 						"do_not_search_system_directories": false,
 						"preprocess_only": false,
 						"defined_symbols": [
-							"DEBUG=1"
+							"DEBUG=0"
 						],
 						"undefined_symbols": []
 					},
@@ -359,7 +359,7 @@
 		"address": "0x00000000",
 		"target_path": "",
 		"clkSpeed": "High",
-		"debug_interface_mode": "1-wire serial",
+		"debug_interface_mode": "",
 		"erase": false,
 		"program": false,
 		"verify": false,

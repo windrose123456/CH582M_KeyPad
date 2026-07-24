@@ -5,43 +5,51 @@
 
 #include "fingerprint_drv.h"
 #include <string.h> // for memcpy
-// #include "uart.h" // 需要包含实际的UART驱动头文件
+#include "CONFIG.h"
 
 /* ======================== 静态变量 ======================== */
 static uint8_t g_tx_buffer[FP_BUFFER_SIZE];
 static uint8_t g_rx_buffer[FP_BUFFER_SIZE];
+// 接收完成标志（由超时中断置位）
+static volatile uint8_t g_frame_ready = 0;
+static uint16_t g_frame_len = 0;  // 实际接收到的字节数
 
 /* ======================== 内部函数声明 ======================== */
 static uint16_t calculate_checksum(uint8_t *data, uint16_t len);
-static int send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, uint16_t param_len);
+static void send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, uint16_t param_len);
 static int receive_ack(FP_AckPacket_t *ack);
-// ... 其他内部辅助函数
 
 /* ======================== 公开接口函数实现 ======================== */
 
 int FP_Init(void) {
-    // 1. 初始化硬件接口 (例如UART)
-    // UART_Init(FP_BAUD_RATE_DEFAULT, 8, 1, 0); // 根据手册配置
+    // UART3 init
+    GPIOA_SetBits(bTXD3);
+    GPIOA_ModeCfg(bTXD3, GPIO_ModeOut_PP_5mA);
+    UART3_DefInit();
+    UART3_INTCfg(ENABLE, UART_II_RECV_RDY | UART_II_RECV_TOUT | RB_IER_LINE_STAT);
+    // 使能UART3的全局中断响应
+    PFIC_EnableIRQ(UART3_IRQn);
     // 2. 可选择发送握手指令测试连接
+
     return FP_Handshake();
 }
 
 int FP_Handshake(void) {
     // 指令格式：无参数
     // 发送指令包
-    int ret = send_packet(FP_PACKET_TYPE_CMD, FP_CMD_HAND_SHAKE, NULL, 0);
-    if (ret != 0) return ret;
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_HAND_SHAKE, NULL, 0);
 
     // 接收应答包
+    int ret = 0;
     FP_AckPacket_t ack;
     ret = receive_ack(&ack);
     return (ret == 0) ? ack.confirm_code : ret;
 }
 
 int FP_GetImage(void) {
-    int ret = send_packet(FP_PACKET_TYPE_CMD, FP_CMD_GET_IMAGE, NULL, 0);
-    if (ret != 0) return ret;
-
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_GET_IMAGE, NULL, 0);
+    
+    int ret = 0;
     FP_AckPacket_t ack;
     ret = receive_ack(&ack);
     return (ret == 0) ? ack.confirm_code : ret;
@@ -50,18 +58,18 @@ int FP_GetImage(void) {
 int FP_GenChar(uint8_t buffer_id) {
     uint8_t params[1];
     params[0] = buffer_id; // BufferID
-    int ret = send_packet(FP_PACKET_TYPE_CMD, FP_CMD_GEN_CHAR, params, sizeof(params));
-    if (ret != 0) return ret;
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_GEN_CHAR, params, sizeof(params));
 
+    int ret = 0;
     FP_AckPacket_t ack;
     ret = receive_ack(&ack);
     return (ret == 0) ? ack.confirm_code : ret;
 }
 
 int FP_Match(uint16_t *score) {
-    int ret = send_packet(FP_PACKET_TYPE_CMD, FP_CMD_MATCH, NULL, 0);
-    if (ret != 0) return ret;
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_MATCH, NULL, 0);
 
+    int ret = 0;
     FP_AckPacket_t ack;
     ret = receive_ack(&ack);
     if (ret == 0 && ack.confirm_code == FP_CONFIRM_OK && score != NULL) {
@@ -79,9 +87,9 @@ int FP_Search(uint8_t buffer_id, uint16_t start_page, uint16_t page_num, uint16_
     params[3] = (page_num >> 8) & 0xFF;   // PageNum High
     params[4] = page_num & 0xFF;          // PageNum Low
     // 第6字节为参数，手册示例中为0，可扩展
-    int ret = send_packet(FP_PACKET_TYPE_CMD, FP_CMD_SEARCH, params, 5); // 注意包长度
-    if (ret != 0) return ret;
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_SEARCH, params, 5); // 注意包长度
 
+    int ret = 0;
     FP_AckPacket_t ack;
     ret = receive_ack(&ack);
     if (ret == 0 && ack.confirm_code == FP_CONFIRM_OK) {
@@ -99,9 +107,9 @@ int FP_Search(uint8_t buffer_id, uint16_t start_page, uint16_t page_num, uint16_
 int FP_RegModel(void) {
     // 合并特征，无参数
     // 验证数据：EF 01 FF FF FF FF 01 00 03 05 00 09
-    int ret = send_packet(FP_PACKET_TYPE_CMD, FP_CMD_REG_MODEL, NULL, 0);
-    if (ret != 0) return ret;
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_REG_MODEL, NULL, 0);
 
+    int ret = 0;
     FP_AckPacket_t ack;
     ret = receive_ack(&ack);
     return (ret == 0) ? ack.confirm_code : ret;
@@ -116,9 +124,10 @@ int FP_LoadChar(uint8_t buffer_id, uint16_t page_id) {
     params[1] = (page_id >> 8) & 0xFF;    // 位置号高字节
     params[2] = page_id & 0xFF;           // 位置号低字节
 
-    int ret = send_packet(FP_PACKET_TYPE_CMD, FP_CMD_LOAD_CHAR, params, sizeof(params));
-    if (ret != 0) return ret;
 
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_LOAD_CHAR, params, sizeof(params));
+
+    int ret = 0;
     FP_AckPacket_t ack;
     ret = receive_ack(&ack);
     return (ret == 0) ? ack.confirm_code : ret;
@@ -134,9 +143,9 @@ int FP_DeleteChar(uint16_t page_id, uint16_t count) {
     params[2] = (count >> 8) & 0xFF;      // 删除个数高字节
     params[3] = count & 0xFF;             // 删除个数低字节
 
-    int ret = send_packet(FP_PACKET_TYPE_CMD, FP_CMD_DELET_CHAR, params, sizeof(params));
-    if (ret != 0) return ret;
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_DELET_CHAR, params, sizeof(params));
 
+    int ret = 0;
     FP_AckPacket_t ack;
     ret = receive_ack(&ack);
     return (ret == 0) ? ack.confirm_code : ret;
@@ -145,9 +154,9 @@ int FP_DeleteChar(uint16_t page_id, uint16_t count) {
 int FP_Empty(void) {
     // 清空指纹库，无参数
     // 验证数据：EF 01 FF FF FF FF 01 00 03 0D 00 11
-    int ret = send_packet(FP_PACKET_TYPE_CMD, FP_CMD_EMPTY, NULL, 0);
-    if (ret != 0) return ret;
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_EMPTY, NULL, 0);
 
+    int ret = 0;
     FP_AckPacket_t ack;
     ret = receive_ack(&ack);
     return (ret == 0) ? ack.confirm_code : ret;
@@ -165,7 +174,7 @@ static uint16_t calculate_checksum(uint8_t *data, uint16_t len) {
     return (uint16_t)(sum & 0xFFFF); // 超出2字节忽略进位
 }
 
-static int send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, uint16_t param_len) {
+static void send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, uint16_t param_len) {
     uint16_t packet_len = 1 + param_len + 2; // 包长度 = 包标识(1B) + 指令码(1B) + 参数(param_len B) + 校验和(2B) - 校验和(2B)本身不计入？ *需再确认协议*
     // 手册第3.1节：包长度 = 包长度至校验和(指令、参数或数据)的总字节数，包含校验和，但不包含包长度本身的字节数。
     // 因此，对于命令包：总字节数 = 包头(2) + 设备地址(4) + 包标识(1) + 包长度(2) + 指令码(1) + 参数(N) + 校验和(2) = 10 + N
@@ -202,18 +211,47 @@ static int send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, u
     packet[idx++] = checksum & 0xFF;
 
     // 发送数据包 (需要实际的UART发送函数)
-    // return UART_Send(packet, idx);
-    return 0; // 占位返回
+    UART3_SendString(packet, idx);
 }
 
-#define FP_RX_TIMEOUT_MS    1000  // 根据实际调整
+__INTERRUPT __HIGH_CODE void UART3_IRQHandler(void) {
+    uint8_t int_flag = UART3_GetITFlag();
+    uint16_t idx = 0;
+
+    if (int_flag == UART_II_RECV_RDY) {
+        // 接收数据可用，读取所有字节到环形缓冲区
+        
+        while (UART3_GetLinSTA() & RB_LSR_RECV_RDY) {
+            uint8_t byte = UART3_RecvByte();
+            if (idx <= FP_BUFFER_SIZE) {  // 防止溢出
+                g_rx_buffer[idx] = byte;
+                idx++;
+            } else {
+                // 缓冲区溢出，可置错误标志
+            }
+        }
+        // 重置超时计数器（由硬件自动）
+    } else if (int_flag == UART_II_RECV_TOUT) {
+        // 接收超时：一帧数据结束
+        g_frame_len = idx;
+        if (g_frame_len > 0) {
+            g_frame_ready = 1;  // 通知主循环有完整帧
+        }
+    } else if (int_flag == UART_II_LINE_STAT) {
+        // 处理线路错误，读取状态寄存器清除标志
+        UART3_GetLinSTA();
+    }
+}
 
 static int receive_ack(FP_AckPacket_t *ack) {
-    uint16_t idx = 0;
-    //uint32_t start_tick = /* 获取当前时间 */;
+    uint32_t start_tick = TMOS_GetSystemClock();
+    while (!g_frame_ready) {
+        if ((TMOS_GetSystemClock() - start_tick) > FP_RX_TIMEOUT_MS) {
+            return -1;  // 超时
+        }
+    }
 
-    // 1. 接收包头 0xEF 01
-    while (idx < 9) {  // 至少需要接收9字节才能解析基本字段
+    while (idx < (9 + pkt_len)) {
         // if (UART_ReceiveByte(&g_rx_buffer[idx], FP_RX_TIMEOUT_MS) != 0)
         //     return -1;
         idx++;
@@ -222,14 +260,6 @@ static int receive_ack(FP_AckPacket_t *ack) {
     // 2. 校验包头
     if (g_rx_buffer[0] != 0xEF || g_rx_buffer[1] != 0x01) {
         return -1;  // 包头错误
-    }
-
-    // 3. 读取包长度，接收剩余数据
-    uint16_t pkt_len = (g_rx_buffer[7] << 8) | g_rx_buffer[8];
-    while (idx < (9 + pkt_len)) {
-        // if (UART_ReceiveByte(&g_rx_buffer[idx], FP_RX_TIMEOUT_MS) != 0)
-        //     return -1;
-        idx++;
     }
 
     // 4. 校验和验证
