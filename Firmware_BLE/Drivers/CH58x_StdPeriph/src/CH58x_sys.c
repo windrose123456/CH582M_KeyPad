@@ -382,6 +382,7 @@ int _write(int fd, char *buf, int size)
     for(i = 0; i < size; i++)
     {
 #if DEBUG == Debug_UART0
+
         while(R8_UART0_TFC == UART_FIFO_SIZE);                  /* 等待数据发送 */
         R8_UART0_THR = *buf++; /* 发送数据 */
 #elif DEBUG == Debug_UART1

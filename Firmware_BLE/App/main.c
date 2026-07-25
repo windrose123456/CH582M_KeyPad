@@ -105,9 +105,10 @@ int main(void)
 
     KeyPad_Init();
     //EC11_Init();
-    WS2812B_Init();
+    
     //Battery_Init();
     //FP_Init();
+    // WS2812B_Init(); // 灯控有问题，不要开启
     printf("all device init done\n");
     Main_Circulation();
 

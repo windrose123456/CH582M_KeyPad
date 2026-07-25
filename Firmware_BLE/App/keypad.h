@@ -41,13 +41,13 @@ A14 A11 B9 B14  0 CTRL WIN ENTER
 #define KEY_7_PIN       GPIO_Pin_1
 
 #define KEY_8_PORT      GPIOA
-#define KEY_8_PIN       GPIO_Pin_15
+#define KEY_8_PIN       GPIO_Pin_14
 
 #define KEY_9_PORT      GPIOA
 #define KEY_9_PIN       GPIO_Pin_7
 
 #define KEY_0_PORT      GPIOA
-#define KEY_0_PIN       GPIO_Pin_14
+#define KEY_0_PIN       GPIO_Pin_15
 
 #define KEY_ENTER_PORT  GPIOB
 #define KEY_ENTER_PIN   GPIO_Pin_14

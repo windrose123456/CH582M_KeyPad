@@ -24,14 +24,14 @@ static inline void delay_cycles(uint32_t n) {
 static void ws2812b_send_bit(uint8_t bit) {
     if (bit) {
         GPIOB_SetBits(WS2812B_PIN);
-        DELAY_CYCLES(48);   // 高800ns
+        DELAY_CYCLES(44);   // 高767ns
         GPIOB_ResetBits(WS2812B_PIN);
-        DELAY_CYCLES(27);   // 低450ns
+        DELAY_CYCLES(24);   // 低433ns
     } else {
         GPIOB_SetBits(WS2812B_PIN);
-        DELAY_CYCLES(24);   // 高400ns
+        DELAY_CYCLES(20);   // 高367ns
         GPIOB_ResetBits(WS2812B_PIN);
-        DELAY_CYCLES(51);   // 低850ns
+        DELAY_CYCLES(48);   // 低833ns
     }
 }
 
@@ -52,7 +52,7 @@ void WS2812B_Init(void)
     uint8_t led_data[15 * 3];
     for (int i = 0; i < 15; i++) {
         led_data[i*3 + 0] = 0;     // G
-        led_data[i*3 + 1] = 255;   // R
+        led_data[i*3 + 1] = 0;     // R
         led_data[i*3 + 2] = 0;     // B
     }
     WS2812B_SendArray(led_data, sizeof(led_data));

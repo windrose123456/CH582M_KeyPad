@@ -47,7 +47,7 @@ uint32_t CH58X_LowPower(uint32_t time)
 
     RTC_SetTignTime(time);
     SYS_RecoverIrq(irq_status);
-  #if(DEBUG == Debug_UART1) // 使用其他串口输出打印信息需要修改这行代码
+  #if(DEBUG == Debug_UART0) // 使用其他串口输出打印信息需要修改这行代码
     while((R8_UART1_LSR & RB_LSR_TX_ALL_EMP) == 0)
     {
         __nop();
