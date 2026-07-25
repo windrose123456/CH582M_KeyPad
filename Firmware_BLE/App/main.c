@@ -104,10 +104,10 @@ int main(void)
     mDelaymS(100);
 
     KeyPad_Init();
-    EC11_Init();
+    //EC11_Init();
     WS2812B_Init();
-    Battery_Init();
-    FP_Init();
+    //Battery_Init();
+    //FP_Init();
     printf("all device init done\n");
     Main_Circulation();
 

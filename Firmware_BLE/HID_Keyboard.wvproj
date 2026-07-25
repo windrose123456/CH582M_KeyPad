@@ -58,7 +58,8 @@
 					"${project}/StdPeriphDriver/CH57x_timer3.c",
 					"${project}/StdPeriphDriver/CH57x_uart0.c",
 					"${project}/StdPeriphDriver/CH57x_uart2.c",
-					"${project}/StdPeriphDriver/CH57x_uart3.c"
+					"${project}/StdPeriphDriver/CH57x_uart3.c",
+					"${project}/App/fingerprint_drv.c"
 				],
 				"optimization": {
 					"level": "size",
@@ -359,7 +360,7 @@
 		"address": "0x00000000",
 		"target_path": "",
 		"clkSpeed": "High",
-		"debug_interface_mode": "",
+		"debug_interface_mode": "1-wire serial",
 		"erase": false,
 		"program": false,
 		"verify": false,
