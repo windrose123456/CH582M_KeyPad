@@ -30,6 +30,7 @@ echo.
 :: 生成临时脚本
 set "script=%TEMP%\git_quick_save.cmd"
 >"%script%" (
+    echo chcp 65001 ^>nul
     echo cd /d "%~dp0"
     echo git status
     echo git add .
