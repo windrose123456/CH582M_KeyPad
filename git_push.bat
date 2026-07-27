@@ -45,3 +45,4 @@ start "Git Quick Save" git-cmd "%script%"
 
 echo 已打开 Git 窗口，正在执行...
 timeout /t 2 >nul
+pause
