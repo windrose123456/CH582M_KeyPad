@@ -21,22 +21,10 @@ echo.
 set "script=%TEMP%\git_quick_save.cmd"
 >"%script%" (
     echo cd /d "%~dp0"
-    echo echo.
-    echo echo [1/4] git status
     echo git status
-    echo echo.
-    echo echo [2/4] git add .
     echo git add .
-    echo echo.
-    echo echo [3/4] git commit
     echo git commit -m "auto save %tag%"
-    echo echo.
-    echo echo [4/4] git push
     echo git push
-    echo echo.
-    echo echo ==============================
-    echo echo  完成！
-    echo echo ==============================
     echo pause
 )
 
