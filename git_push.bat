@@ -33,7 +33,7 @@ set "script=%TEMP%\git_quick_save.cmd"
     echo cd /d "%~dp0"
     echo git status
     echo git add .
-    echo git commit -m "auto save %tag%"
+    echo git commit -m "%msg%"
     echo git push
     echo pause
 )
