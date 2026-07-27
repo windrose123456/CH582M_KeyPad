@@ -22,6 +22,7 @@
 #include "keypad.h"
 #include "hid_report.h"
 #include "ec11.h"
+#include "battery.h"
 /*********************************************************************
  * MACROS
  */
@@ -324,36 +325,71 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
     // ===== 按键扫描发送事件 =====
     if (events & START_KEYSCAN_EVT)
     {
-        // // EC11旋钮
-        // EC11_Scan();
-        // // ----- 处理旋转事件 -----
-        // int16_t step = EC11_GetStep();          // 获取累计步数（含加速度）
-        // if (step != 0) {
-        //     // 这里可以根据 step 的正负和大小来控制音量
-        //     // 假设音量值范围为 0~100，步进累加
-        //     static int16_t volume = 50;         // 当前音量百分比
-        //     volume += step;
-        //     if (volume < 0) volume = 0;
-        //     if (volume > 100) volume = 100;
-
-        //     printf("Volume: %d%% (Step: %d)\r\n", volume, step);
-
-        //     // 实际控制硬件（例如 PWM 占空比）
-        //     // SetPWM_Duty(volume * 10);  // 假设 0~1000
-
-        //     // 处理完步进后，清空步数（或不清零，取决于你的应用）
-        //     EC11_ResetStep();
+        // 电池 ADC (电池ADC读数4090，应该不正常，先看官方设计)
+        // static uint32_t temp_test_tick = 0;
+        // if(TMOS_GetSystemClock() - temp_test_tick > 2000)
+        // {
+        //     uint16_t battery_adc_raw_data = Battery_ReadRaw();
+        //     printf("battery_adc_raw_data = %d\n", battery_adc_raw_data);
+        //     temp_test_tick = TMOS_GetSystemClock();
         // }
 
-        // // ----- 处理按键事件 -----
-        // EC11_KeyState_t key = EC11_GetKeyState();
-        // static EC11_KeyState_t last_key = EC11_KEY_RELEASED;
-        // if (key == EC11_KEY_PRESSED && last_key == EC11_KEY_RELEASED) {
-        //     // 检测到按键按下（上升沿，即从释放到按下）
-        //     printf("Volume Key Pressed!\r\n");
-        //     // 例如：静音切换
-        // }
-        // last_key = key;
+        // EC11旋钮
+        int16_t step = EC11_GetStep();         
+        if (step != 0) {
+            // 【重要】发送完按键后，必须发送一个空报告(0x00, 0x00)来表示按键已释放[reference:19][reference:20]
+            if (!HID_IsReady()) // 目前EC11旋钮和按键没法进行唤醒，应该是固件问题，后面添加打印在看看EC11中有没有执行到DevWakeup()
+            {
+                DevWakeup();                          // ① 唤醒总线
+                mDelaymS(15);                         // ② 等待主机恢复
+            }
+
+            static uint32_t EC11_send_tick = 0;
+            if (EC11_send_tick == 0)
+            {
+                uint8_t consumerReport[2];
+                consumerReport[0] = 0x02;
+                consumerReport[1] = (step > 0) ? 0x01 : 0x02; 
+                
+                DevHIDReport(consumerReport, 2);
+                EC11_send_tick = TMOS_GetSystemClock();
+                printf("Volume change send\n");
+            }
+            if (TMOS_GetSystemClock() - EC11_send_tick > 30)
+            {
+                uint8_t release_report[2] = {0x02, 0x00}; 
+                DevHIDReport(release_report, 2);
+                EC11_send_tick = 0;
+                EC11_ResetStep();
+            }
+        }
+
+        // ----- 处理EC11按键事件 -----
+        if (EC11_GetKeyState()) {
+            if (!HID_IsReady()) 
+            {
+                DevWakeup();                          // ① 唤醒总线
+                mDelaymS(15);                         // ② 等待主机恢复
+            }
+
+            static uint32_t EC11_send_tick = 0;
+            if (EC11_send_tick == 0)
+            {
+                uint8_t consumerReport[2];
+                consumerReport[0] = 0x02;
+                consumerReport[1] = 0x04;
+                EC11_send_tick = TMOS_GetSystemClock();
+                DevHIDReport(consumerReport, 2);
+                printf("Mute Toggle\n");
+            }
+            if (TMOS_GetSystemClock() - EC11_send_tick > 30)
+            {
+                uint8_t release_report[2] = {0x02, 0x00}; 
+                DevHIDReport(release_report, 2);
+                EC11_send_tick = 0;
+                EC11_ResetKey();
+            }
+        }
 
         KeyPad_Scan();
         //printf("KeyPad_Scan()\n");
@@ -362,6 +398,12 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
         // 键值发生变化
         if (current_bitmap != last_bitmap)
         {
+            if (!HID_IsReady()) 
+            {
+                DevWakeup();                          // ① 唤醒总线
+                mDelaymS(15);                         // ② 等待主机恢复
+            }
+
             extern uint8_t hidProtocolMode;
             printf("proto_mode: %d, bitmap: 0x%04X\n", hidProtocolMode, current_bitmap);
             printf("current_bitmap: %d\n", current_bitmap);
@@ -369,11 +411,12 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
             // 有键按下 → 发送按下报告
             if (HID_IsReady()) 
             {
-                uint8_t report[2];
-                report[0] = current_bitmap & 0xFF;
-                report[1] = (current_bitmap >> 8) & 0xFF;
+                uint8_t report[3];
+                report[0] = 0x01; // 键盘 report ID = 0x01
+                report[1] = current_bitmap & 0xFF;
+                report[2] = (current_bitmap >> 8) & 0xFF;
                 printf("USB send\n");
-                DevHIDReport(report, 2);
+                DevHIDReport(report, 3);
             }
             else 
             {
@@ -382,6 +425,7 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
             }
             last_bitmap = current_bitmap;
         }
+
         // 再次扫描（自我循环）
         tmos_start_task(task_id, START_KEYSCAN_EVT, KEYSCAN_INTERVAL_TICK);
         return (events ^ START_KEYSCAN_EVT);

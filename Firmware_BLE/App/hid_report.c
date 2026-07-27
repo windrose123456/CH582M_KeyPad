@@ -9,6 +9,7 @@ const uint8_t MyDevDescr[] = {0x12,0x01,0x10,0x01,0x00,0x00,0x00,DevEP0SIZE,0x27
 const uint8_t HIDDescr[] = {0x05, 0x01,                                                   //Generic Desktop
                             0x09, 0x06,                                                   //Keyboard   
                             0xA1, 0x01,                                                   //集合开始
+                            0x85, 0x01,        // <--- 新增：Report ID (1) 用于键盘
 
                             // ----- 第一段：数字1~9、0、Enter（0x1E ~ 0x28，共11个）-----
                             0x05, 0x07,                                                   //Keyboard Application
@@ -64,6 +65,35 @@ const uint8_t HIDDescr[] = {0x05, 0x01,                                         
                             0x75, 0x01,                                                   //Report Size
                             0x95, 0x01,                                                   //Report Counet
                             0x81, 0x03,                                                   //Input (Const)
+                            0xC0,
+
+                            // ----- Consumer Control（多媒体键）-----
+                            0x05, 0x0C,           // Usage Page (Consumer)
+                            0x09, 0x01,           // Usage (Consumer Control)
+                            0xA1, 0x01,           // Collection (Application)
+                            0x85, 0x02,           //   Report ID (2)
+                            
+                            // -------- 音量增大（位 0） --------
+                            0x09, 0xE9,           //   Usage (Volume Increment)
+                            0x15, 0x00,           //   Logical Minimum (0)
+                            0x25, 0x01,           //   Logical Maximum (1)
+                            0x75, 0x01,           //   Report Size (1)
+                            0x95, 0x01,           //   Report Count (1)
+                            0x81, 0x02,           //   Input (Data, Var, Abs)
+
+                            // -------- 音量减小（位 1） --------
+                            0x09, 0xEA,           //   Usage (Volume Decrement)
+                            0x81, 0x02,           //   Input (Data, Var, Abs)
+
+                            // -------- 静音切换（bit 2） --------
+                            0x09, 0xE2,           //   Usage (Mute)
+                            0x81, 0x02,           //   Input (Data, Var, Abs)
+
+                            // -------- 填充5位，对齐到整字节 --------
+                            0x75, 0x05,           //   Report Size (5)   ← 从6改为5
+                            0x95, 0x01,           //   Report Count (1)
+                            0x81, 0x01,           //   Input (Cnst, Var, Abs)
+
                             0xC0};
 
 // 配置描述符
