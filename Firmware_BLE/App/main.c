@@ -20,10 +20,12 @@
 #include "hid_report.h"
 #include "fingerprint_drv.h"
 #include "ec11.h"
+#include "main.h"
 #include "ws2812b.h"
 #include "battery.h"
 
 volatile uint32_t last_key_tick = 0; // 低功耗模式使用
+volatile uint8_t enter_sleep_flag = 0; // 进入sleep mode 置1，唤醒中断置0
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -69,7 +71,7 @@ void Main_Circulation()
             printf("Entering sleep mode...\n");
             Enter_SleepMode();           // 阻塞在这里，直到唤醒
             Wakeup_Reinit();             // 唤醒后执行
-            last_key_tick = TMOS_GetSystemClock();
+            last_key_tick = SYS_GetSysTickCnt();
             printf("Wakeup complete\n");
         }
     }
@@ -118,6 +120,8 @@ int main(void)
     // Battery_Init();
     //FP_Init();
     // WS2812B_Init(); // 灯控有问题，不要开启
+
+    // 还需要看门狗
 
     last_key_tick = SYS_GetSysTickCnt();
     printf("all device init done\n");
@@ -192,39 +196,60 @@ void Sleep_WakeupConfig(void) {
 void Enter_SleepMode(void) {
     // ① 关闭 USB（可选，看功耗要求）
     // 如果需要 USB 远程唤醒则保留 USB，否则关闭
-    USB_Disable();
+    USB_DeviceDisable();
 
     // ② 关闭其他外设时钟
     // 关闭 UART、SPI、定时器等
-    R8_CLK_SYS_CFG = 0x00;  // 具体值参考手册
+    // R8_CLK_SYS_CFG = 0x00;  // 具体值参考手册
 
     // ③ 配置唤醒源
     Sleep_WakeupConfig();
 
+    enter_sleep_flag = 1;
+
     // ④ 进入待机
-    // CH582M 的低功耗进入方式
-    LowPower_Sleep(LPM_IDLE);  // 或 LPM_STANDBY，看你的需求
-}
+    // 进入睡眠，只保留必要的 RAM
+    LowPower_Sleep(RB_PWR_RAM30K | RB_PWR_RAM2K);
+    // 保留 USB/BLE 单元，以实现快速 USB 唤醒
+    // LowPower_Sleep(RB_PWR_RAM30K | RB_PWR_RAM2K | RB_PWR_EXTEND);
 
-volatile uint8_t wakeup_flag = 0;
-
-void GPIO_IRQHandler(void) {
-    if (GPIOA_GetITFlagBit(0xFFFF)) {
-        GPIOA_ClearITFlagBit(0xFFFF);    // 清中断标志
-        wakeup_flag = 1;                  // 标记唤醒事件
-    }
+    //LowPower_Sleep 函数内部为了确保可靠唤醒，会临时提高高频时钟（HSE）的偏置电流。因此，唤醒后必须调用 HSECFG_Current(HSE_RCur_100); 将其恢复为额定电流，否则功耗会偏高
+    // 被唤醒后，立即恢复高频时钟电流
+    HSECFG_Current(HSE_RCur_100);
+    enter_sleep_flag = 0;
 }
 
 void Wakeup_Reinit(void) {
     // ① 关闭唤醒中断（防止抖动重复触发）
-    PFIC_DisableIRQ(GPIO_IRQn);
+    PFIC_DisableIRQ(GPIO_A_IRQn);
+    PFIC_DisableIRQ(GPIO_B_IRQn);
 
-    // ② 重新初始化时钟（可能被降频或关闭）
-    SetSysClock(CLK_SOURCE_PLL_60MHz);   // 恢复正常时钟
+#if(defined(DCDC_ENABLE)) && (DCDC_ENABLE == TRUE)
+    PWR_DCDCCfg(ENABLE);
+#endif
+    SetSysClock(CLK_SOURCE_PLL_60MHz);
     mDelaymS(10);                         // 等待时钟稳定
+#if(defined(HAL_SLEEP)) && (HAL_SLEEP == TRUE)
+    GPIOA_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
+    GPIOB_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
+#endif
+#ifdef DEBUG 
+    GPIOB_SetBits(bTXD0);
+    GPIOB_ModeCfg(bTXD0, GPIO_ModeOut_PP_5mA);
+    UART0_DefInit();
+#endif
+    // 重新初始化蓝牙，待判断哪些函数需要重新执行，实现蓝牙功能再修改
+    CH58X_BLEInit();
+    HAL_Init();
+    GAPRole_PeripheralInit();
+    HidDev_Init();
+    HidEmu_Init();
 
     // ③ 重新初始化 USB
-    USB_Init();
+    HID_InitUSBBuffer();
+    USB_DeviceInit();
+    PFIC_EnableIRQ(USB_IRQn);       //启用中断向量
+    mDelaymS(100);
     // 注意：主机可能需要几秒重新枚举
     // 这期间不能发送 HID 报告
 
@@ -234,7 +259,17 @@ void Wakeup_Reinit(void) {
 
     // ⑤ 重新初始化 EC11 编码器
     EC11_Init();
+}
 
-    // ⑥ 清除标志
-    wakeup_flag = 0;
+__INTERRUPT __HIGH_CODE void GPIOA_IRQHandler(void)
+{
+    if (enter_sleep_flag == 1 && GPIOA_ReadITFlagBit(KEY_1_PIN | KEY_2_PIN 
+        | KEY_3_PIN | KEY_4_PIN | KEY_5_PIN | KEY_6_PIN | KEY_7_PIN 
+        | KEY_8_PIN | KEY_9_PIN | KEY_0_PIN | KEY_CTRL_PORT))
+    {
+        GPIOA_ClearITFlagBit(KEY_1_PIN | KEY_2_PIN | KEY_3_PIN | KEY_4_PIN 
+            | KEY_5_PIN | KEY_6_PIN | KEY_7_PIN | KEY_8_PIN 
+            | KEY_9_PIN | KEY_0_PIN | KEY_CTRL_PORT);
+
+    }
 }

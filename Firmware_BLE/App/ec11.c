@@ -1,6 +1,8 @@
 #include "ec11.h"
 #include <stdbool.h>
 #include "CONFIG.h"
+#include "keypad.h"
+#include "main.h"
 
 /* ======================== 静态变量 ======================== */
 // 旋转相关
@@ -52,6 +54,13 @@ void EC11_ResetKey(void) {
 
 __INTERRUPT __HIGH_CODE void GPIOB_IRQHandler(void)
 {
+    if(enter_sleep_flag == 1 
+        && GPIOB_ReadITFlagBit(KEY_ENTER_PIN | KEY_DELETE_PIN | KEY_ALT_PIN | KEY_WIN_PIN))
+    {
+        GPIOB_ClearITFlagBit(KEY_ENTER_PIN | KEY_DELETE_PIN | KEY_ALT_PIN | KEY_WIN_PIN);
+        return;
+    }
+
     if (GPIOB_ReadITFlagBit(EC11_A_PIN))
     {
         GPIOB_ClearITFlagBit(EC11_A_PIN);

@@ -111,3 +111,27 @@ void DevEP4_IN_Deal(uint8_t l)
     R8_UEP4_T_LEN = l;
     R8_UEP4_CTRL = (R8_UEP4_CTRL & ~MASK_UEP_T_RES) | UEP_T_RES_ACK;
 }
+
+/*********************************************************************
+ * @fn      USB_DeviceDisable
+ *
+ * @brief   USB设备功能关闭，进入低功耗前调用。
+ *          - 清除 USB 系统控制位 (MASK_UC_SYS_CTRL = 00)，禁用设备并关闭内部上拉电阻
+ *          - 禁用 USB 物理端口 I/O
+ *          - 注意：不操作 RB_UC_CLR_ALL (不清FIFO)，保留已配置的端点信息
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+void USB_DeviceDisable(void)
+{
+    // 1. 清除 USB 系统控制位 (bUC_HOST_MODE & bUC_SYS_CTRL1 & bUC_SYS_CTRL0)
+    //    MASK_UC_SYS_CTRL = 0x30，清零后为 0 00，即：
+    //    "disable USB device and disable internal pullup resistance"
+    R8_USB_CTRL &= ~MASK_UC_SYS_CTRL;   // 清除 bit5-4
+
+    // 2. 禁用 USB 物理端口 I/O (RB_UD_PORT_EN = 0)
+    //    确保物理层也彻底关闭，进一步降低功耗
+    R8_UDEV_CTRL &= ~RB_UD_PORT_EN;
+}

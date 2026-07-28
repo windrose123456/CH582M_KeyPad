@@ -123,6 +123,18 @@ void DevEP3_IN_Deal(uint8_t l);
  */
 void DevEP4_IN_Deal(uint8_t l);
 
+/*********************************************************************
+ * @fn      USB_DeviceDisable
+ *
+ * @brief   USB设备功能关闭，进入低功耗前调用。
+ *          - 清除 USB 系统控制位 (MASK_UC_SYS_CTRL = 00)，禁用设备并关闭内部上拉电阻
+ *          - 禁用 USB 物理端口 I/O
+ *          - 注意：不操作 RB_UC_CLR_ALL (不清FIFO)，保留已配置的端点信息
+ *
+ * @param   none
+ */
+void USB_DeviceDisable(void);
+
 /**
  * @brief   查询端点1是否上传完成
  *

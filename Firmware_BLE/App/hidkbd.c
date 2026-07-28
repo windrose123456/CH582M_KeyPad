@@ -22,6 +22,7 @@
 #include "keypad.h"
 #include "hid_report.h"
 #include "ec11.h"
+#include "main.h"
 #include "battery.h"
 /*********************************************************************
  * MACROS
