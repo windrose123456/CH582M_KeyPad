@@ -26,6 +26,7 @@
 
 volatile uint32_t last_key_tick = 0; // 低功耗模式使用
 volatile uint8_t enter_sleep_flag = 0; // 进入sleep mode 置1，唤醒中断置0
+volatile uint8_t wakeup_source = 0;
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -67,12 +68,12 @@ void Main_Circulation()
     {
         TMOS_SystemProcess();
         // ===== 检查是否该休眠 =====
-        if (SYS_GetSysTickCnt() - last_key_tick > SLEEP_TIMEOUT_MS) {
-            printf("Entering sleep mode...\n");
+        if (TMOS_GetSystemClock() - last_key_tick > SLEEP_TIMEOUT_MS) {
+            printf("Entering sleep mode...%d\n", TMOS_GetSystemClock());
             Enter_SleepMode();           // 阻塞在这里，直到唤醒
             Wakeup_Reinit();             // 唤醒后执行
-            last_key_tick = SYS_GetSysTickCnt();
-            printf("Wakeup complete\n");
+            last_key_tick = TMOS_GetSystemClock();
+            printf("Wakeup complete, wakeup_source = %d\n", wakeup_source);
         }
     }
 }
@@ -123,7 +124,7 @@ int main(void)
 
     // 还需要看门狗
 
-    last_key_tick = SYS_GetSysTickCnt();
+    last_key_tick = TMOS_GetSystemClock();
     printf("all device init done\n");
     Main_Circulation();
 
@@ -169,6 +170,9 @@ void USB_IRQHandler(void) /* USB中断服务程序,使用寄存器组1 */
 
 // 唤醒中断配置，使用sleep模式
 void Sleep_WakeupConfig(void) {
+    GPIOA_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
+    GPIOB_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
+
     for (int i = 0; i < KEY_NUM; i++) {
         uint8_t port = key_config[i].port;
         uint32_t pin = key_config[i].pin;
@@ -191,12 +195,13 @@ void Sleep_WakeupConfig(void) {
     GPIOB_ClearITFlagBit(0xFFFF);
     PFIC_EnableIRQ(GPIO_A_IRQn);          // 使能 GPIO 中断
     PFIC_EnableIRQ(GPIO_B_IRQn);
+    PWR_PeriphWakeUpCfg(ENABLE, RB_SLP_GPIO_WAKE, Long_Delay); // 电源管理单元启用 GPIO 唤醒
 }
 
 void Enter_SleepMode(void) {
     // ① 关闭 USB（可选，看功耗要求）
     // 如果需要 USB 远程唤醒则保留 USB，否则关闭
-    USB_DeviceDisable();
+    USB_DeviceDisable(); // 同时需要控制 sleep 模式USB供电
 
     // ② 关闭其他外设时钟
     // 关闭 UART、SPI、定时器等
@@ -210,7 +215,7 @@ void Enter_SleepMode(void) {
     // ④ 进入待机
     // 进入睡眠，只保留必要的 RAM
     LowPower_Sleep(RB_PWR_RAM30K | RB_PWR_RAM2K);
-    // 保留 USB/BLE 单元，以实现快速 USB 唤醒
+    // 保留 USB/BLE 单元，以实现快速 USB 唤醒，这个好像没啥用
     // LowPower_Sleep(RB_PWR_RAM30K | RB_PWR_RAM2K | RB_PWR_EXTEND);
 
     //LowPower_Sleep 函数内部为了确保可靠唤醒，会临时提高高频时钟（HSE）的偏置电流。因此，唤醒后必须调用 HSECFG_Current(HSE_RCur_100); 将其恢复为额定电流，否则功耗会偏高
@@ -267,6 +272,7 @@ __INTERRUPT __HIGH_CODE void GPIOA_IRQHandler(void)
         | KEY_3_PIN | KEY_4_PIN | KEY_5_PIN | KEY_6_PIN | KEY_7_PIN 
         | KEY_8_PIN | KEY_9_PIN | KEY_0_PIN | KEY_CTRL_PORT))
     {
+        wakeup_source = 1;  // 标记是 GPIOA 唤醒的
         GPIOA_ClearITFlagBit(KEY_1_PIN | KEY_2_PIN | KEY_3_PIN | KEY_4_PIN 
             | KEY_5_PIN | KEY_6_PIN | KEY_7_PIN | KEY_8_PIN 
             | KEY_9_PIN | KEY_0_PIN | KEY_CTRL_PORT);

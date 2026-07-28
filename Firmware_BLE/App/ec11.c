@@ -58,6 +58,7 @@ __INTERRUPT __HIGH_CODE void GPIOB_IRQHandler(void)
         && GPIOB_ReadITFlagBit(KEY_ENTER_PIN | KEY_DELETE_PIN | KEY_ALT_PIN | KEY_WIN_PIN))
     {
         GPIOB_ClearITFlagBit(KEY_ENTER_PIN | KEY_DELETE_PIN | KEY_ALT_PIN | KEY_WIN_PIN);
+        wakeup_source = 2;  // 标记是 GPIOB 唤醒的
         return;
     }
 

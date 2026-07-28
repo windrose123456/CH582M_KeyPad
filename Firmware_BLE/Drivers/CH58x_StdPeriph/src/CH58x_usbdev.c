@@ -134,4 +134,7 @@ void USB_DeviceDisable(void)
     // 2. 禁用 USB 物理端口 I/O (RB_UD_PORT_EN = 0)
     //    确保物理层也彻底关闭，进一步降低功耗
     R8_UDEV_CTRL &= ~RB_UD_PORT_EN;
+
+    // ★ 断开 USB D+ 上拉，让主机认为设备已拔除
+    R16_PIN_ANALOG_IE &= ~(RB_PIN_USB_DP_PU);
 }

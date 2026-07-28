@@ -338,6 +338,7 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
         // EC11旋钮
         int16_t step = EC11_GetStep();         
         if (step != 0) {
+            last_key_tick = TMOS_GetSystemClock();
             // 【重要】发送完按键后，必须发送一个空报告(0x00, 0x00)来表示按键已释放[reference:19][reference:20]
             if (!HID_IsReady()) // 目前EC11旋钮和按键没法进行唤醒，应该是固件问题，后面添加打印在看看EC11中有没有执行到DevWakeup()
             {
@@ -367,6 +368,7 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
 
         // ----- 处理EC11按键事件 -----
         if (EC11_GetKeyState()) {
+            last_key_tick = TMOS_GetSystemClock();
             if (!HID_IsReady()) 
             {
                 DevWakeup();                          // ① 唤醒总线
@@ -399,6 +401,7 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
         // 键值发生变化
         if (current_bitmap != last_bitmap)
         {
+            last_key_tick = TMOS_GetSystemClock();
             if (!HID_IsReady()) 
             {
                 DevWakeup();                          // ① 唤醒总线
