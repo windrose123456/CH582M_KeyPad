@@ -4,6 +4,7 @@
 *.PcbDocPreview
 
 Hardware/History/
+CH634X-USB-HUB/History/
 __Previews/
 *.OutJob
 *.Rpt

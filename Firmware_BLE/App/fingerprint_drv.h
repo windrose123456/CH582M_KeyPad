@@ -9,10 +9,9 @@
 #include "CH58x_common.h"
 
 /* ======================== 用户配置区域 ======================== */
-// 请根据实际硬件修改此文件中的参数
 
 // 通信接口相关 (例如: UART)
-#define FP_BAUD_RATE_DEFAULT    57600  // 默认波特率
+#define FP_BAUD_RATE_DEFAULT    115200  // 默认波特率
 #define FP_RX_TIMEOUT_MS    500  // 超时时间
 /* ======================== 硬件引脚定义 ======================== */
 #define TOUCH_IRQ_PIN      GPIO_Pin_6   
@@ -23,6 +22,7 @@
 #define FP_PACKET_TYPE_CMD      0x01  // 命令包
 #define FP_PACKET_TYPE_DATA     0x02  // 数据包 (有后续包)
 #define FP_PACKET_TYPE_END      0x08  // 最后一个数据包 (结束包)
+#define FP_PACKET_TYPE_ACK      0x07
 
 // 包头与设备地址
 #define FP_PACKET_HEADER        0xEF01
@@ -130,34 +130,34 @@ typedef struct {
 /* ======================== 驱动函数声明 ======================== */
 
 /**
- * @brief 初始化指纹模组驱动，配置UART等硬件。
- * @return 0: 成功, 非0: 错误码
+ * @brief 初始化指纹模组驱动，初始化硬件（UART、定时器、GPIO）。
+ * @return 0: 成功, -1: 失败
  */
 int FP_Init(void);
 
 /**
  * @brief 发送握手指令，检测模组是否正常工作。(指令代码 0x35)
- * @return 0: 成功 (收到确认码 0x00), 非0: 错误码
+ * @return 0 指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_Handshake(void);
 
 /**
  * @brief 获取指纹图像。(指令代码 0x01)
- * @return 确认码，0表示成功
+ * @return 确认码，0指令已发送
  */
 int FP_GetImage(void);
 
 /**
  * @brief 从图像生成特征，存入BufferID指定的缓冲区。(指令代码 0x02)
  * @param buffer_id 缓冲区ID (BufferID)
- * @return 确认码，0表示成功
+ * @return 确认码，0指令已发送
  */
 int FP_GenChar(uint8_t buffer_id);
 
 /**
  * @brief 精确比对Buffer1和Buffer2中的特征。(指令代码 0x03)
  * @param score [out] 匹配分数 (需根据协议解析应答包)
- * @return 确认码，0表示匹配成功
+ * @return 确认码，0指令已发送
  */
 int FP_Match(uint16_t *score);
 
@@ -166,15 +166,13 @@ int FP_Match(uint16_t *score);
  * @param buffer_id 缓冲区ID
  * @param start_page 起始页
  * @param page_num 页数
- * @param page_id [out] 匹配的页码 (需解析应答)
- * @param score [out] 匹配分数
- * @return 确认码，0表示搜索到
+ * @return 确认码，0指令已发送
  */
-int FP_Search(uint8_t buffer_id, uint16_t start_page, uint16_t page_num, uint16_t *page_id, uint16_t *score);
+int FP_Search(uint8_t buffer_id, uint16_t start_page, uint16_t page_num);
 
 /**
  * @brief 将特征文件融合后生成一个模板。(指令代码 0x05)
- * @return 确认码，0表示成功
+ * @return 确认码，0指令已发送
  */
 int FP_RegModel(void);
 
@@ -182,7 +180,7 @@ int FP_RegModel(void);
  * @brief 将模板存入指纹库指定位置。(指令代码 0x06)
  * @param buffer_id 缓冲区ID (默认1)
  * @param page_id 指纹库位置号
- * @return 确认码，0表示成功
+ * @return 确认码，0指令已发送
  */
 int FP_StoreChar(uint8_t buffer_id, uint16_t page_id);
 
@@ -190,63 +188,35 @@ int FP_StoreChar(uint8_t buffer_id, uint16_t page_id);
  * @brief 从指纹库读出模板到缓冲区。(指令代码 0x07)
  * @param buffer_id 缓冲区ID (默认2)
  * @param page_id 指纹库位置号
- * @return 确认码，0表示成功
+ * @return 确认码，0指令已发送
  */
 int FP_LoadChar(uint8_t buffer_id, uint16_t page_id);
 
 /**
  * @brief 上传缓冲区中的模板。(指令代码 0x08)
  * @param buffer_id 缓冲区ID
- * @return 确认码，0表示成功，后续需接收数据包
+ * @return 确认码，0指令已发送
  */
 int FP_UpChar(uint8_t buffer_id);
 
 /**
  * @brief 下载模板到模组缓冲区。(指令代码 0x09)
  * @param buffer_id 缓冲区ID (默认1)
- * @return 确认码，0表示成功，后续需发送数据包
+ * @return 确认码，0指令已发送
  */
 int FP_DownChar(uint8_t buffer_id);
-
-/**
- * @brief 删除指纹库中的模板。(指令代码 0x0C)
- * @param page_id 起始页码
- * @param count 删除的模板个数
- * @return 确认码，0表示成功
- */
-int FP_DeleteChar(uint16_t page_id, uint16_t count);
-
-/**
- * @brief 清空指纹库。(指令代码 0x0D)
- * @return 确认码，0表示成功
- */
-int FP_Empty(void);
-
-/**
- * @brief 将特征文件融合后生成一个模板。(指令代码 0x05)
- * @return 确认码，0表示成功
- */
-int FP_RegModel(void);
-
-/**
- * @brief 从指纹库读出模板到缓冲区。(指令代码 0x07)
- * @param buffer_id 缓冲区ID (默认2)
- * @param page_id 指纹库位置号
- * @return 确认码，0表示成功
- */
-int FP_LoadChar(uint8_t buffer_id, uint16_t page_id);
 
 /**
  * @brief 删除指纹库中指定ID开始的N个模板。(指令代码 0x0C)
  * @param page_id 起始页码
  * @param count 删除的模板个数
- * @return 确认码，0表示成功
+ * @return 确认码，0指令已发送
  */
 int FP_DeleteChar(uint16_t page_id, uint16_t count);
 
 /**
  * @brief 清空指纹库。(指令代码 0x0D)
- * @return 确认码，0表示成功
+ * @return 确认码，0指令已发送
  */
 int FP_Empty(void);
 

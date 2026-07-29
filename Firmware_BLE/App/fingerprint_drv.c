@@ -6,113 +6,151 @@
 #include "fingerprint_drv.h"
 #include <string.h> // for memcpy
 #include "CONFIG.h"
+#include "ring_buffer.h"
 
 /* ======================== 静态变量 ======================== */
-static uint8_t g_tx_buffer[FP_BUFFER_SIZE];
-static uint8_t g_rx_buffer[FP_BUFFER_SIZE];
-// 接收完成标志（由超时中断置位）
-static volatile uint8_t g_frame_ready = 0;
-static uint16_t g_frame_len = 0;  // 实际接收到的字节数
+static uint8_t uart3_tx_buf[FP_BUFFER_SIZE];
+static uint8_t uart3_rx_buf[FP_BUFFER_SIZE];
+// 创建独立的环形缓冲区实例
+static ring_buffer_t uart3_rx_ring;
+
+/* ======================== 状态机变量 ======================== */
+typedef enum {
+    FP_STATE_IDLE = 0,
+    FP_STATE_WAITING,          // 已发送指令，等待应答
+    FP_STATE_DONE,             // 收到应答或超时
+} FP_State_t;
+
+static volatile FP_State_t g_fp_state = FP_STATE_IDLE;
+static volatile uint8_t  g_frame_ready = 0;   // 由 UART 超时中断置位
+static uint32_t g_wait_start_tick = 0;
+static uint8_t  g_cmd_sent = 0;                // 最近发送的指令码
+static int      g_result_code = 0;             // 最终结果（确认码或负错误码）
+static FP_AckPacket_t g_last_ack;              // 存储最后收到的应答
 
 /* ======================== 内部函数声明 ======================== */
 static uint16_t calculate_checksum(uint8_t *data, uint16_t len);
 static void send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, uint16_t param_len);
-static int receive_ack(FP_AckPacket_t *ack);
+static int parse_ack_packet(uint8_t *buf, uint16_t len, FP_AckPacket_t *ack);
 
 /* ======================== 公开接口函数实现 ======================== */
 
 int FP_Init(void) {
+    // 修改模块波特率
+
+    // 模块中断引脚初始化
+    GPIOA_ModeCfg(TOUCH_IRQ_PIN, GPIO_ModeIN_PU);
+    GPIOA_ITModeCfg(TOUCH_IRQ_PIN, GPIO_ITMode_RiseEdge);
+    PFIC_EnableIRQ(GPIO_A_IRQn);
+
     // UART3 init
     GPIOA_SetBits(bTXD3);
+    GPIOA_ModeCfg(bRXD3, GPIO_ModeIN_PU);
     GPIOA_ModeCfg(bTXD3, GPIO_ModeOut_PP_5mA);
     UART3_DefInit();
-    UART3_INTCfg(ENABLE, UART_II_RECV_RDY | UART_II_RECV_TOUT | RB_IER_LINE_STAT);
-    // 使能UART3的全局中断响应
+    UART3_ByteTrigCfg(UART_4BYTE_TRIG);
+    UART3_INTCfg(ENABLE, RB_IER_RECV_RDY | RB_IER_LINE_STAT);
     PFIC_EnableIRQ(UART3_IRQn);
-    // 2. 可选择发送握手指令测试连接
+
+    // 超时定时器
+    TMR0_TimerInit(600000);
+    TMR0_ITCfg(ENABLE, TMR0_3_IT_CYC_END);
+    PFIC_EnableIRQ(TMR0_IRQn);
+    TMR0_Disable();
+
+    // 初始化环形缓冲区
+    ring_buffer_init(&uart3_rx_ring, uart3_rx_buf, sizeof(uart3_rx_buf));
+
+    // 接收模块上电完成字节
+
+    g_fp_state = FP_STATE_IDLE;
+    g_frame_ready = 0;
 
     return FP_Handshake();
 }
 
 int FP_Handshake(void) {
-    // 指令格式：无参数
-    // 发送指令包
+    if (g_fp_state != FP_STATE_IDLE) return -1;
     send_packet(FP_PACKET_TYPE_CMD, FP_CMD_HAND_SHAKE, NULL, 0);
-
-    // 接收应答包
-    int ret = 0;
-    FP_AckPacket_t ack;
-    ret = receive_ack(&ack);
-    return (ret == 0) ? ack.confirm_code : ret;
+    g_cmd_sent = FP_CMD_HAND_SHAKE;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();        // 启动超时定时器
+    return 0;
 }
 
 int FP_GetImage(void) {
+    if (g_fp_state != FP_STATE_IDLE) return -1;
     send_packet(FP_PACKET_TYPE_CMD, FP_CMD_GET_IMAGE, NULL, 0);
-    
-    int ret = 0;
-    FP_AckPacket_t ack;
-    ret = receive_ack(&ack);
-    return (ret == 0) ? ack.confirm_code : ret;
+    g_cmd_sent = FP_CMD_GET_IMAGE;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();
+    return 0;
 }
 
 int FP_GenChar(uint8_t buffer_id) {
-    uint8_t params[1];
-    params[0] = buffer_id; // BufferID
-    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_GEN_CHAR, params, sizeof(params));
-
-    int ret = 0;
-    FP_AckPacket_t ack;
-    ret = receive_ack(&ack);
-    return (ret == 0) ? ack.confirm_code : ret;
+    if (g_fp_state != FP_STATE_IDLE) return -1;
+    uint8_t params[1] = {buffer_id};
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_GEN_CHAR, params, 1);
+    g_cmd_sent = FP_CMD_GEN_CHAR;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();
+    return 0;
 }
 
 int FP_Match(uint16_t *score) {
+    if (g_fp_state != FP_STATE_IDLE) return -1;
     send_packet(FP_PACKET_TYPE_CMD, FP_CMD_MATCH, NULL, 0);
-
-    int ret = 0;
-    FP_AckPacket_t ack;
-    ret = receive_ack(&ack);
-    if (ret == 0 && ack.confirm_code == FP_CONFIRM_OK && score != NULL) {
-        // 根据手册，应答包包含2字节得分，高字节在前
-        *score = (ack.return_params[0] << 8) | ack.return_params[1];
-    }
-    return (ret == 0) ? ack.confirm_code : ret;
+    g_cmd_sent = FP_CMD_MATCH;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();
+    return 0;
 }
 
-int FP_Search(uint8_t buffer_id, uint16_t start_page, uint16_t page_num, uint16_t *page_id, uint16_t *score) {
-    uint8_t params[6];
-    params[0] = buffer_id; // BufferID
-    params[1] = (start_page >> 8) & 0xFF; // StartPage High
-    params[2] = start_page & 0xFF;        // StartPage Low
-    params[3] = (page_num >> 8) & 0xFF;   // PageNum High
-    params[4] = page_num & 0xFF;          // PageNum Low
-    // 第6字节为参数，手册示例中为0，可扩展
-    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_SEARCH, params, 5); // 注意包长度
-
-    int ret = 0;
-    FP_AckPacket_t ack;
-    ret = receive_ack(&ack);
-    if (ret == 0 && ack.confirm_code == FP_CONFIRM_OK) {
-        // 根据手册，应答包包含页码(2字节)和得分(2字节)
-        if (page_id != NULL) {
-            *page_id = (ack.return_params[0] << 8) | ack.return_params[1];
-        }
-        if (score != NULL) {
-            *score = (ack.return_params[2] << 8) | ack.return_params[3];
-        }
-    }
-    return (ret == 0) ? ack.confirm_code : ret;
+int FP_Search(uint8_t buffer_id, uint16_t start_page, uint16_t page_num) {
+    if (g_fp_state != FP_STATE_IDLE) return -1;
+    uint8_t params[5] = {
+        buffer_id,
+        (start_page >> 8) & 0xFF,
+        start_page & 0xFF,
+        (page_num >> 8) & 0xFF,
+        page_num & 0xFF
+    };
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_SEARCH, params, 5);
+    g_cmd_sent = FP_CMD_SEARCH;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();
+    return 0;
 }
 
 int FP_RegModel(void) {
     // 合并特征，无参数
     // 验证数据：EF 01 FF FF FF FF 01 00 03 05 00 09
     send_packet(FP_PACKET_TYPE_CMD, FP_CMD_REG_MODEL, NULL, 0);
+    g_cmd_sent = FP_CMD_REG_MODEL;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();
+    return 0;
+}
 
-    int ret = 0;
-    FP_AckPacket_t ack;
-    ret = receive_ack(&ack);
-    return (ret == 0) ? ack.confirm_code : ret;
+int FP_StoreChar(uint8_t buffer_id, uint16_t page_id) {
+    if (g_fp_state != FP_STATE_IDLE) return -1;
+    uint8_t params[3] = {
+        buffer_id,
+        (page_id >> 8) & 0xFF,
+        page_id & 0xFF
+    };
+    send_packet(FP_PACKET_TYPE_CMD, FP_CMD_STORE_CHAR, params, 3);
+    g_cmd_sent = FP_CMD_STORE_CHAR;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();
+    return 0;
 }
 
 int FP_LoadChar(uint8_t buffer_id, uint16_t page_id) {
@@ -126,11 +164,11 @@ int FP_LoadChar(uint8_t buffer_id, uint16_t page_id) {
 
 
     send_packet(FP_PACKET_TYPE_CMD, FP_CMD_LOAD_CHAR, params, sizeof(params));
-
-    int ret = 0;
-    FP_AckPacket_t ack;
-    ret = receive_ack(&ack);
-    return (ret == 0) ? ack.confirm_code : ret;
+    g_cmd_sent = FP_CMD_LOAD_CHAR;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();
+    return 0;
 }
 
 int FP_DeleteChar(uint16_t page_id, uint16_t count) {
@@ -144,22 +182,70 @@ int FP_DeleteChar(uint16_t page_id, uint16_t count) {
     params[3] = count & 0xFF;             // 删除个数低字节
 
     send_packet(FP_PACKET_TYPE_CMD, FP_CMD_DELET_CHAR, params, sizeof(params));
-
-    int ret = 0;
-    FP_AckPacket_t ack;
-    ret = receive_ack(&ack);
-    return (ret == 0) ? ack.confirm_code : ret;
+    g_cmd_sent = FP_CMD_DELET_CHAR;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();
+    return 0;
 }
 
 int FP_Empty(void) {
     // 清空指纹库，无参数
     // 验证数据：EF 01 FF FF FF FF 01 00 03 0D 00 11
     send_packet(FP_PACKET_TYPE_CMD, FP_CMD_EMPTY, NULL, 0);
+    g_cmd_sent = FP_CMD_EMPTY;
+    g_wait_start_tick = TMOS_GetSystemClock();
+    g_fp_state = FP_STATE_WAITING;
+    TMR0_Enable();
+    return 0;
+}
 
-    int ret = 0;
-    FP_AckPacket_t ack;
-    ret = receive_ack(&ack);
-    return (ret == 0) ? ack.confirm_code : ret;
+void FP_Process(void) {
+    if (g_fp_state != FP_STATE_WAITING) return;
+
+    // 1. 检查硬件超时标志（由 TMR0 置位）
+    if (g_frame_ready) {
+        g_frame_ready = 0;
+        TMR0_Disable();
+
+        // 从环形缓冲区取出所有数据
+        uint8_t packet[FP_BUFFER_SIZE];
+        uint16_t len = ring_buffer_available(&uart3_rx_ring);
+        if (len > 0) {
+            ring_buffer_pop_multiple(&uart3_rx_ring, packet, len);
+        }
+
+        // 解析应答包
+        if (parse_ack_packet(packet, len, &g_last_ack) == 0) {
+            g_result_code = g_last_ack.confirm_code;  // 成功返回确认码
+        } else {
+            g_result_code = -2;  // 解析失败（校验错等）
+        }
+        g_fp_state = FP_STATE_DONE;
+        return;
+    }
+
+    // 2. 软件超时检测（兜底）
+    if (TMOS_GetSystemClock() - g_wait_start_tick > FP_RX_TIMEOUT_MS) {
+        TMR0_Disable();
+        g_result_code = -1;     // 超时
+        g_fp_state = FP_STATE_DONE;
+    }
+}
+
+int FP_GetResult(FP_AckPacket_t *ack) {
+    if (g_fp_state != FP_STATE_DONE) {
+        return -3;  // 尚未完成
+    }
+    if (ack != NULL) {
+        memcpy(ack, &g_last_ack, sizeof(FP_AckPacket_t));
+    }
+    g_fp_state = FP_STATE_IDLE;   // 消费后自动重置
+    return g_result_code;
+}
+
+int FP_IsBusy(void) {
+    return (g_fp_state == FP_STATE_WAITING) ? 1 : 0;
 }
 
 /* ======================== 内部函数实现 ======================== */
@@ -181,8 +267,7 @@ static void send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, 
     // 包长度字段的值 = 总字节数 - 4 (包头+设备地址) - 2 (包长度字段本身) = 4 + N? *需严格按照示例计算*
     // 这里我们根据示例简化计算，实际需精确遵循协议
     uint16_t content_len = 1 + param_len + 2; // 包标识(1) + 指令码(1) + 参数(N) + 校验和(2) = N+4
-    uint16_t packet_len_field = content_len; // 实际协议中此值为 content_len
-    uint8_t *packet = g_tx_buffer;
+    uint8_t *packet = uart3_tx_buf;
     uint16_t idx = 0;
 
     // 包头
@@ -196,8 +281,8 @@ static void send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, 
     // 包标识
     packet[idx++] = packet_type;
     // 包长度
-    packet[idx++] = (packet_len_field >> 8) & 0xFF;
-    packet[idx++] = packet_len_field & 0xFF;
+    packet[idx++] = (content_len >> 8) & 0xFF;
+    packet[idx++] = content_len & 0xFF;
     // 指令码
     packet[idx++] = cmd_code;
     // 参数
@@ -214,76 +299,70 @@ static void send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, 
     UART3_SendString(packet, idx);
 }
 
-__INTERRUPT __HIGH_CODE void UART3_IRQHandler(void) {
-    uint8_t int_flag = UART3_GetITFlag();
-    uint16_t idx = 0;
+static int parse_ack_packet(uint8_t *buf, uint16_t len, FP_AckPacket_t *ack) {
+    if (len < 12) return -1;   // 最小应答包长度
+    if (buf[0] != 0xEF || buf[1] != 0x01) return -1;
 
-    if (int_flag == UART_II_RECV_RDY) {
-        // 接收数据可用，读取所有字节到环形缓冲区
-        
-        while (UART3_GetLinSTA() & RB_LSR_RECV_RDY) {
-            uint8_t byte = UART3_RecvByte();
-            if (idx <= FP_BUFFER_SIZE) {  // 防止溢出
-                g_rx_buffer[idx] = byte;
-                idx++;
-            } else {
-                // 缓冲区溢出，可置错误标志
-            }
-        }
-        // 重置超时计数器（由硬件自动）
-    } else if (int_flag == UART_II_RECV_TOUT) {
-        // 接收超时：一帧数据结束
-        g_frame_len = idx;
-        if (g_frame_len > 0) {
-            g_frame_ready = 1;  // 通知主循环有完整帧
-        }
-    } else if (int_flag == UART_II_LINE_STAT) {
-        // 处理线路错误，读取状态寄存器清除标志
-        UART3_GetLinSTA();
+    // 校验和（从包标识开始到数据结束）
+    uint16_t calc = 0;
+    for (uint16_t i = 6; i < len - 2; i++) {
+        calc += buf[i];
     }
-}
+    uint16_t recv = (buf[len-2] << 8) | buf[len-1];
+    if (calc != recv) return -2;
 
-static int receive_ack(FP_AckPacket_t *ack) {
-    uint32_t start_tick = TMOS_GetSystemClock();
-    while (!g_frame_ready) {
-        if ((TMOS_GetSystemClock() - start_tick) > FP_RX_TIMEOUT_MS) {
-            return -1;  // 超时
-        }
-    }
-
-    while (idx < (9 + pkt_len)) {
-        // if (UART_ReceiveByte(&g_rx_buffer[idx], FP_RX_TIMEOUT_MS) != 0)
-        //     return -1;
-        idx++;
-    }
-
-    // 2. 校验包头
-    if (g_rx_buffer[0] != 0xEF || g_rx_buffer[1] != 0x01) {
-        return -1;  // 包头错误
-    }
-
-    // 4. 校验和验证
-    uint16_t calc_sum = calculate_checksum(g_rx_buffer, idx - 2);
-    uint16_t recv_sum = (g_rx_buffer[idx - 2] << 8) | g_rx_buffer[idx - 1];
-    if (calc_sum != recv_sum) {
-        return -2;  // 校验和错误
-    }
-
-    // 5. 解析应答字段
     ack->packet_header = FP_PACKET_HEADER;
-    ack->device_addr   = 0xFFFFFFFF;
-    ack->packet_type   = g_rx_buffer[6];
-    ack->packet_len    = pkt_len;
-    ack->confirm_code  = g_rx_buffer[9];
-
-    // 6. 解析返回参数（从第10字节开始，长度 = pkt_len - 3）
-    uint8_t param_len = pkt_len - 3;  // 减去确认码(1) + 校验和(2)
-    if (param_len > 16) param_len = 16;
-    memcpy(ack->return_params, &g_rx_buffer[10], param_len);
-
+    ack->device_addr = 0xFFFFFFFF;
+    ack->packet_type = buf[6];
+    ack->packet_len = (buf[7] << 8) | buf[8];
+    ack->confirm_code = buf[9];
+    uint8_t plen = ack->packet_len - 3;
+    if (plen > 16) plen = 16;
+    memcpy(ack->return_params, &buf[10], plen);
     return 0;
 }
 
+/* ======================== 中断处理 ======================== */
+
+__INTERRUPT __HIGH_CODE void UART3_IRQHandler(void)
+{
+    switch(UART3_GetITFlag())
+    {
+        case UART_II_RECV_RDY: // 数据达到设置触发点
+            while (UART3_GetLinSTA() & STA_RECV_DATA) {
+                uint8_t byte = UART3_RecvByte();
+                ring_buffer_push(&uart3_rx_ring, byte);  // 存入实例
+                //UART3_SendString(&byte, 1);
+    
+                // 清0计数器
+                R8_TMR0_CTRL_MOD |= RB_TMR_ALL_CLEAR;   // 复位计数器
+                R8_TMR0_CTRL_MOD &= ~RB_TMR_ALL_CLEAR;  // 解除复位
+                TMR0_Enable();
+            }
+            break;
+
+        case UART_II_RECV_TOUT: // 接收超时，暂时一帧数据接收完成
+            while (UART3_GetLinSTA() & STA_RECV_DATA) {
+                uint8_t byte = UART3_RecvByte();
+                ring_buffer_push(&uart3_rx_ring, byte);
+            }
+            break;
+
+        default:
+            break;
+    }
+}
+
+__INTERRUPT __HIGH_CODE void TMR0_IRQHandler(void)
+{
+    if (TMR0_GetITFlag(TMR0_3_IT_CYC_END))
+    {
+        TMR0_ClearITFlag(TMR0_3_IT_CYC_END);
+        TMR0_Disable();
+        // 置帧完成标志
+        g_frame_ready = 1;
+    }
+}
 
 /* ======================== 示例主函数 (用于演示驱动用法) ======================== */
 /*
