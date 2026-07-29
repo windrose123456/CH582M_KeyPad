@@ -23,10 +23,15 @@
 #include "main.h"
 #include "ws2812b.h"
 #include "battery.h"
+#include "ring_buffer.h"
 
 volatile uint32_t last_key_tick = 0; // 低功耗模式使用
 volatile uint8_t enter_sleep_flag = 0; // 进入sleep mode 置1，唤醒中断置0
 volatile uint8_t wakeup_source = 0;
+// 创建独立的环形缓冲区实例
+static uint8_t uart3_rx_buf[64];
+static ring_buffer_t uart3_rx_ring;
+uint8_t g_frame_ready = 0;
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -75,6 +80,17 @@ void Main_Circulation()
             last_key_tick = TMOS_GetSystemClock();
             printf("Wakeup complete, wakeup_source = %d\n", wakeup_source);
         }
+        if (g_frame_ready) {  // 有问题的
+            g_frame_ready = 0;
+            // 从环形缓冲区取出完整数据包
+            uint8_t packet[32];
+            uint16_t len = ring_buffer_available(&uart3_rx_ring);
+            if (len > 0) {
+                uint16_t read = ring_buffer_pop_multiple(&uart3_rx_ring, packet, len);
+                // 解析 packet[0..read-1]
+                UART3_SendString(packet, read);
+            }
+        }
     }
 }
 
@@ -116,11 +132,20 @@ int main(void)
     PFIC_EnableIRQ(USB_IRQn);       //启用中断向量
     mDelaymS(100);
 
-    KeyPad_Init();
+    KeyPad_Init(); 
     EC11_Init();
     // Battery_Init();
     //FP_Init();
     // WS2812B_Init(); // 灯控有问题，不要开启
+
+    GPIOA_SetBits(bTXD3);
+    GPIOA_ModeCfg(bRXD3, GPIO_ModeIN_PU);
+    GPIOA_ModeCfg(bTXD3, GPIO_ModeOut_PP_5mA);
+    UART3_DefInit();
+    uint8_t uart3_test_data[] = "2222222222222";
+    UART3_SendString(uart3_test_data, sizeof(uart3_test_data));
+
+    ring_buffer_init(&uart3_rx_ring, uart3_rx_buf, sizeof(uart3_rx_buf));
 
     // 还需要看门狗
 
@@ -277,5 +302,30 @@ __INTERRUPT __HIGH_CODE void GPIOA_IRQHandler(void)
             | KEY_5_PIN | KEY_6_PIN | KEY_7_PIN | KEY_8_PIN 
             | KEY_9_PIN | KEY_0_PIN | KEY_CTRL_PORT);
 
+    }
+}
+
+__INTERRUPT __HIGH_CODE void UART3_IRQHandler(void)
+{
+    switch(UART3_GetITFlag())
+    {
+        case UART_II_RECV_RDY: // 数据达到设置触发点
+            while (UART3_GetLinSTA() & STA_RECV_DATA) {
+                uint8_t byte = UART3_RecvByte();
+                ring_buffer_push(&uart3_rx_ring, byte);  // 存入实例
+            }
+            break;
+
+        case UART_II_RECV_TOUT: // 接收超时，暂时一帧数据接收完成
+            while (UART3_GetLinSTA() & STA_RECV_DATA) {
+                uint8_t byte = UART3_RecvByte();
+                ring_buffer_push(&uart3_rx_ring, byte);
+            }
+            // 置帧完成标志
+            g_frame_ready = 1;
+            break;
+
+        default:
+            break;
     }
 }
