@@ -61,7 +61,7 @@ int FP_Init(void) {
     // 初始化环形缓冲区
     ring_buffer_init(&uart3_rx_ring, uart3_rx_buf, sizeof(uart3_rx_buf));
 
-    // 接收模块上电完成字节
+    // 接收模块上电完成字节 FF 55
 
     g_fp_state = FP_STATE_IDLE;
     g_frame_ready = 0;
@@ -214,7 +214,7 @@ void FP_Process(void) {
         if (len > 0) {
             ring_buffer_pop_multiple(&uart3_rx_ring, packet, len);
         }
-
+        UART0_SendString(packet, len);
         // 解析应答包
         if (parse_ack_packet(packet, len, &g_last_ack) == 0) {
             g_result_code = g_last_ack.confirm_code;  // 成功返回确认码
@@ -297,6 +297,7 @@ static void send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, 
 
     // 发送数据包 (需要实际的UART发送函数)
     UART3_SendString(packet, idx);
+    UART0_SendString(packet, idx);
 }
 
 static int parse_ack_packet(uint8_t *buf, uint16_t len, FP_AckPacket_t *ack) {

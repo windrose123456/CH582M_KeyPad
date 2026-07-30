@@ -21,8 +21,8 @@
 // 包标识 (Packet Identifier)
 #define FP_PACKET_TYPE_CMD      0x01  // 命令包
 #define FP_PACKET_TYPE_DATA     0x02  // 数据包 (有后续包)
+#define FP_PACKET_TYPE_ACK      0x07  // 应答包
 #define FP_PACKET_TYPE_END      0x08  // 最后一个数据包 (结束包)
-#define FP_PACKET_TYPE_ACK      0x07
 
 // 包头与设备地址
 #define FP_PACKET_HEADER        0xEF01
