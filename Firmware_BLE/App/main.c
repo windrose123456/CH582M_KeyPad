@@ -68,25 +68,23 @@ void Main_Circulation()
     while(1)
     {
         TMOS_SystemProcess();
-        // ===== 检查是否该休眠 =====
-        if (TMOS_GetSystemClock() - last_key_tick > SLEEP_TIMEOUT_MS) {
-            printf("Entering sleep mode...%d\n", TMOS_GetSystemClock());
+
+        // ===== 检查是否该休眠 ===== 
+        // 其实休眠更适合作为一个 tmos 任务，开定时器，超时直接进入tmos，运行完睡眠
+        // 或者 使用 TMOS 的 HAL_SLEEP，如果也是使用sleep模式，就修改成使用 TMOS 自动管理
+        if (TMOS_GetSystemClock() - last_key_tick > SLEEP_TIMEOUT_MS) {  // 查询一下TMOS的低功耗管理 HAL_SLEEP，看一下任务调度
+            printf("Entering sleep mode...");
+            char buf[80];
+            int len = snprintf(buf, sizeof(buf), "last_key_tick: %u\r\n", (unsigned int)last_key_tick);
+            UART0_SendString((uint8_t *)buf, len);
+            len = snprintf(buf, sizeof(buf), "TMOS_GetSystemClock: %u, %u\r\n", 
+               (unsigned int)TMOS_GetSystemClock(), (unsigned int)last_key_tick);
+            UART0_SendString((uint8_t *)buf, len);
             Enter_SleepMode();           // 阻塞在这里，直到唤醒
             Wakeup_Reinit();             // 唤醒后执行
             last_key_tick = TMOS_GetSystemClock();
             printf("Wakeup complete, wakeup_source = %d\n", wakeup_source);
         }
-        // if (g_frame_ready) {  // 有问题的
-        //     g_frame_ready = 0;
-        //     // 从环形缓冲区取出完整数据包
-        //     uint8_t packet[32];
-        //     uint16_t len = ring_buffer_available(&uart3_rx_ring);
-        //     if (len > 0) {
-        //         uint16_t read = ring_buffer_pop_multiple(&uart3_rx_ring, packet, len);
-        //         // 解析 packet[0..read-1]
-        //         UART3_SendString(packet, read);
-        //     }
-        // }
     }
 }
 
@@ -140,6 +138,8 @@ int main(void)
     
 
     // 还需要看门狗
+
+    // 后续将 hidEmuTaskId 任务进行拆分，将按键扫描等新建到一个TMOS任务，在新任务中使用tmos_set_event设置发送标志等
 
     last_key_tick = TMOS_GetSystemClock();
     printf("all device init done\n");
@@ -283,6 +283,8 @@ void Wakeup_Reinit(void) {
     EC11_Init();
 }
 
+uint8_t touch_irq_flag = 0;
+
 __INTERRUPT __HIGH_CODE void GPIOA_IRQHandler(void)
 {
     if (enter_sleep_flag == 1 && GPIOA_ReadITFlagBit(KEY_1_PIN | KEY_2_PIN 
@@ -300,10 +302,11 @@ __INTERRUPT __HIGH_CODE void GPIOA_IRQHandler(void)
     {
         GPIOA_ClearITFlagBit(TOUCH_IRQ_PIN);
         // 发送指纹模块采集指令
+        touch_irq_flag += 1;
+        //printf("touch_irq\n");
 
     }
 }
-
 
 /**
  * @brief 将二进制数据转换为十六进制 ASCII 字符串（空格分隔）

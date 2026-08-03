@@ -7,6 +7,7 @@
 #include <string.h> // for memcpy
 #include "CONFIG.h"
 #include "ring_buffer.h"
+#include "main.h"
 
 /* ======================== 静态变量 ======================== */
 static uint8_t uart3_tx_buf[FP_BUFFER_SIZE];
@@ -16,7 +17,7 @@ static ring_buffer_t uart3_rx_ring;
 
 /* ======================== 状态机变量 ======================== */
 typedef enum {
-    FP_STATE_IDLE = 0,
+    FP_STATE_IDLE = 0,         // 空闲，等待发送指令
     FP_STATE_WAITING,          // 已发送指令，等待应答
     FP_STATE_DONE,             // 收到应答或超时
 } FP_State_t;
@@ -66,7 +67,7 @@ int FP_Init(void) {
     g_fp_state = FP_STATE_IDLE;
     g_frame_ready = 0;
 
-    return FP_Handshake();
+    return 0;
 }
 
 int FP_Handshake(void) {
@@ -75,7 +76,6 @@ int FP_Handshake(void) {
     g_cmd_sent = FP_CMD_HAND_SHAKE;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();        // 启动超时定时器
     return 0;
 }
 
@@ -85,7 +85,6 @@ int FP_GetImage(void) {
     g_cmd_sent = FP_CMD_GET_IMAGE;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();
     return 0;
 }
 
@@ -96,17 +95,15 @@ int FP_GenChar(uint8_t buffer_id) {
     g_cmd_sent = FP_CMD_GEN_CHAR;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();
     return 0;
 }
 
-int FP_Match(uint16_t *score) {
+int FP_Match() {
     if (g_fp_state != FP_STATE_IDLE) return -1;
     send_packet(FP_PACKET_TYPE_CMD, FP_CMD_MATCH, NULL, 0);
     g_cmd_sent = FP_CMD_MATCH;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();
     return 0;
 }
 
@@ -123,7 +120,6 @@ int FP_Search(uint8_t buffer_id, uint16_t start_page, uint16_t page_num) {
     g_cmd_sent = FP_CMD_SEARCH;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();
     return 0;
 }
 
@@ -134,7 +130,6 @@ int FP_RegModel(void) {
     g_cmd_sent = FP_CMD_REG_MODEL;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();
     return 0;
 }
 
@@ -149,7 +144,6 @@ int FP_StoreChar(uint8_t buffer_id, uint16_t page_id) {
     g_cmd_sent = FP_CMD_STORE_CHAR;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();
     return 0;
 }
 
@@ -167,7 +161,6 @@ int FP_LoadChar(uint8_t buffer_id, uint16_t page_id) {
     g_cmd_sent = FP_CMD_LOAD_CHAR;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();
     return 0;
 }
 
@@ -185,7 +178,6 @@ int FP_DeleteChar(uint16_t page_id, uint16_t count) {
     g_cmd_sent = FP_CMD_DELET_CHAR;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();
     return 0;
 }
 
@@ -196,17 +188,24 @@ int FP_Empty(void) {
     g_cmd_sent = FP_CMD_EMPTY;
     g_wait_start_tick = TMOS_GetSystemClock();
     g_fp_state = FP_STATE_WAITING;
-    TMR0_Enable();
     return 0;
+}
+
+int FP_WriteReg(void)
+{
+    // send_packet(FP_PACKET_TYPE_CMD, FP_CMD_WRITE_REG, NULL, 0);
+    // g_cmd_sent = FP_CMD_WRITE_REG;
+    // g_wait_start_tick = TMOS_GetSystemClock();
+    // g_fp_state = FP_STATE_WAITING;
+    return 0;   
 }
 
 void FP_Process(void) {
     if (g_fp_state != FP_STATE_WAITING) return;
 
-    // 1. 检查硬件超时标志（由 TMR0 置位）
+    // 1. 检查硬件超时标志
     if (g_frame_ready) {
         g_frame_ready = 0;
-        TMR0_Disable();
 
         // 从环形缓冲区取出所有数据
         uint8_t packet[FP_BUFFER_SIZE];
@@ -214,7 +213,7 @@ void FP_Process(void) {
         if (len > 0) {
             ring_buffer_pop_multiple(&uart3_rx_ring, packet, len);
         }
-        UART0_SendString(packet, len);
+        debug_hex_dump(packet, len, "FP rx: ");
         // 解析应答包
         if (parse_ack_packet(packet, len, &g_last_ack) == 0) {
             g_result_code = g_last_ack.confirm_code;  // 成功返回确认码
@@ -225,12 +224,11 @@ void FP_Process(void) {
         return;
     }
 
-    // 2. 软件超时检测（兜底）
-    if (TMOS_GetSystemClock() - g_wait_start_tick > FP_RX_TIMEOUT_MS) {
-        TMR0_Disable();
-        g_result_code = -1;     // 超时
-        g_fp_state = FP_STATE_DONE;
-    }
+    // // 2. 软件超时检测（兜底）
+    // if (TMOS_GetSystemClock() - g_wait_start_tick > FP_RX_TIMEOUT_MS) {
+    //     g_result_code = -1;     // 超时
+    //     g_fp_state = FP_STATE_DONE;
+    // }
 }
 
 int FP_GetResult(FP_AckPacket_t *ack) {
@@ -297,7 +295,7 @@ static void send_packet(uint8_t packet_type, uint8_t cmd_code, uint8_t *params, 
 
     // 发送数据包 (需要实际的UART发送函数)
     UART3_SendString(packet, idx);
-    UART0_SendString(packet, idx);
+    debug_hex_dump(packet, idx, "FP tx: ");
 }
 
 static int parse_ack_packet(uint8_t *buf, uint16_t len, FP_AckPacket_t *ack) {
@@ -320,6 +318,11 @@ static int parse_ack_packet(uint8_t *buf, uint16_t len, FP_AckPacket_t *ack) {
     uint8_t plen = ack->packet_len - 3;
     if (plen > 16) plen = 16;
     memcpy(ack->return_params, &buf[10], plen);
+    return 0;
+}
+
+uint16_t FP_drv_ProcessEvent(uint8_t task_id, uint16_t events)
+{
     return 0;
 }
 
@@ -364,36 +367,3 @@ __INTERRUPT __HIGH_CODE void TMR0_IRQHandler(void)
         g_frame_ready = 1;
     }
 }
-
-/* ======================== 示例主函数 (用于演示驱动用法) ======================== */
-/*
-#include <stdio.h>
-
-int main(void) {
-    printf("Initializing fingerprint driver...\n");
-    if (FP_Init() != 0) {
-        printf("Driver init failed!\n");
-        return 1;
-    }
-    printf("Handshake success!\n");
-
-    printf("Place finger on sensor...\n");
-    while (FP_GetImage() != FP_CONFIRM_OK) {
-        // 等待手指按压
-    }
-    printf("Finger captured.\n");
-
-    // 生成特征到Buffer1
-    if (FP_GenChar(1) == FP_CONFIRM_OK) {
-        // 在指纹库中搜索 (假设从0页开始搜100页)
-        uint16_t found_page, score;
-        if (FP_Search(1, 0, 100, &found_page, &score) == FP_CONFIRM_OK) {
-            printf("Fingerprint matched! PageID: %d, Score: %d\n", found_page, score);
-        } else {
-            printf("No match found.\n");
-        }
-    }
-
-    return 0;
-}
-*/

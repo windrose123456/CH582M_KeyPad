@@ -24,6 +24,7 @@
 #include "ec11.h"
 #include "main.h"
 #include "battery.h"
+#include "fingerprint_drv.h"
 /*********************************************************************
  * MACROS
  */
@@ -334,6 +335,53 @@ uint16_t HidEmu_ProcessEvent(uint8_t task_id, uint16_t events)
         //     printf("battery_adc_raw_data = %d\n", battery_adc_raw_data);
         //     temp_test_tick = TMOS_GetSystemClock();
         // }
+        static uint8_t fp_test_flag = 0; // 简单测试使用
+        extern uint8_t touch_irq_flag;
+        if(touch_irq_flag)
+        {
+            touch_irq_flag = 0;
+            if (fp_test_flag == 0) 
+            {
+                FP_GetImage();
+                fp_test_flag++;
+            }
+            else if (fp_test_flag == 1)
+            {
+                FP_Search(1, 0, 100);
+                fp_test_flag = 0;
+            }
+            // 下面是录入指纹过程
+            // else if (fp_test_flag == 1)
+            // {
+            //     FP_GenChar(1); //
+            //     fp_test_flag++;
+            // }
+            // else if (fp_test_flag == 2)
+            // {
+            //     FP_GetImage();
+            //     fp_test_flag++;
+            // }
+            // else if (fp_test_flag == 3)
+            // {
+            //     FP_GenChar(2); //
+            //     fp_test_flag++;
+            // }
+            // else if (fp_test_flag == 4)
+            // {
+            //     FP_RegModel();
+            //     fp_test_flag++;
+            // }
+            // else if (fp_test_flag == 5)
+            // {
+            //     FP_StoreChar(1, 0);
+            //     fp_test_flag = 0;
+            // }
+        }
+
+        FP_Process(); // 后续这个新建一个tmos任务标志位，或者也可以不新建，得先看怎么样解锁电脑
+        FP_AckPacket_t *ack;
+        int fp_ret = FP_GetResult(ack);
+
 
         // EC11旋钮
         int16_t step = EC11_GetStep();         

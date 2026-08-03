@@ -17,6 +17,15 @@
 #define TOUCH_IRQ_PIN      GPIO_Pin_6   
 #define TOUCH_IRQ_GPIO     GPIOA   
 
+/* ======================== 可修改寄存器定义 ======================== */
+#define FP_REG_SERIAL_DELAY     0   // 串口延时，0~255ms
+#define FP_REG_ENROLL_TIMES     1   // 注册次数 (EnrollTimes)
+#define FP_REG_IMAGE_FORMAT     2   // 图像格式 (0: format0, 1: format1)
+#define FP_REG_ENROLL_MODE      3   // 注册逻辑 (0: mode0, 1: mode1, 2: mode2)
+#define FP_REG_BAUDRATE         4   // 波特率 (9600的倍数 N, 0<N<13)
+#define FP_REG_MATCH_THRESHOLD  5   // 比对阈值 (1~27 对应 level 0~26)
+#define FP_REG_PACKET_SIZE      6   // 包大小 (0:32B,1:64B,2:128B,3:256B)
+
 /* ======================== 协议常量定义 (手册第3章) ======================== */
 // 包标识 (Packet Identifier)
 #define FP_PACKET_TYPE_CMD      0x01  // 命令包
@@ -85,6 +94,7 @@
 #define FP_CMD_DOWN_CHAR        0x09  // PS_DownChar
 #define FP_CMD_DELET_CHAR       0x0C  // PS_DeleChar
 #define FP_CMD_EMPTY            0x0D  // PS_Empty
+#define FP_CMD_WRITE_REG        0x0E  // PS_WriteReg
 // 模块指令集
 #define FP_CMD_AUTO_ENROLL      0x31  // PS_AutoEnroll
 #define FP_CMD_AUTO_IDENTIFY    0x32  // PS_AutoIdentify
@@ -136,43 +146,42 @@ typedef struct {
 int FP_Init(void);
 
 /**
- * @brief 发送握手指令，检测模组是否正常工作。(指令代码 0x35)
+ * @brief 初始化指纹模组。(指令代码 0x35)
  * @return 0 指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_Handshake(void);
 
 /**
  * @brief 获取指纹图像。(指令代码 0x01)
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_GetImage(void);
 
 /**
  * @brief 从图像生成特征，存入BufferID指定的缓冲区。(指令代码 0x02)
- * @param buffer_id 缓冲区ID (BufferID)
- * @return 确认码，0指令已发送
+ * @param buffer_id 缓冲区ID (BufferID)，应该只有两个，且要先使用1才能使用2
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_GenChar(uint8_t buffer_id);
 
 /**
  * @brief 精确比对Buffer1和Buffer2中的特征。(指令代码 0x03)
- * @param score [out] 匹配分数 (需根据协议解析应答包)
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
-int FP_Match(uint16_t *score);
+int FP_Match();
 
 /**
  * @brief 以Buffer中的特征搜索指纹库。(指令代码 0x04)
  * @param buffer_id 缓冲区ID
  * @param start_page 起始页
  * @param page_num 页数
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_Search(uint8_t buffer_id, uint16_t start_page, uint16_t page_num);
 
 /**
  * @brief 将特征文件融合后生成一个模板。(指令代码 0x05)
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_RegModel(void);
 
@@ -180,7 +189,7 @@ int FP_RegModel(void);
  * @brief 将模板存入指纹库指定位置。(指令代码 0x06)
  * @param buffer_id 缓冲区ID (默认1)
  * @param page_id 指纹库位置号
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_StoreChar(uint8_t buffer_id, uint16_t page_id);
 
@@ -188,21 +197,21 @@ int FP_StoreChar(uint8_t buffer_id, uint16_t page_id);
  * @brief 从指纹库读出模板到缓冲区。(指令代码 0x07)
  * @param buffer_id 缓冲区ID (默认2)
  * @param page_id 指纹库位置号
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_LoadChar(uint8_t buffer_id, uint16_t page_id);
 
 /**
  * @brief 上传缓冲区中的模板。(指令代码 0x08)
  * @param buffer_id 缓冲区ID
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_UpChar(uint8_t buffer_id);
 
 /**
  * @brief 下载模板到模组缓冲区。(指令代码 0x09)
  * @param buffer_id 缓冲区ID (默认1)
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_DownChar(uint8_t buffer_id);
 
@@ -210,14 +219,37 @@ int FP_DownChar(uint8_t buffer_id);
  * @brief 删除指纹库中指定ID开始的N个模板。(指令代码 0x0C)
  * @param page_id 起始页码
  * @param count 删除的模板个数
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_DeleteChar(uint16_t page_id, uint16_t count);
 
 /**
  * @brief 清空指纹库。(指令代码 0x0D)
- * @return 确认码，0指令已发送
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
  */
 int FP_Empty(void);
+
+/**
+ * @brief 写模组寄存器。(指令代码 0x0E)
+ * @return 确认码，0指令已发送，结果通过 FP_GetResult() 获取
+ */
+int FP_WriteReg(void);
+
+void FP_Process(void);
+
+int FP_GetResult(FP_AckPacket_t *ack);
+
+/*********************************************************************
+ * @fn      FP_drv_ProcessEvent
+ *
+ * @brief   指纹模组 TMOS 处理函数
+ *
+ * @param   task_id  - The TMOS assigned task ID.
+ * @param   events - events to process.  This is a bit map and can
+ *                   contain more than one event.
+ *
+ * @return  events not processed
+ */
+uint16_t FP_drv_ProcessEvent(uint8_t task_id, uint16_t events);
 
 #endif /* FINGERPRINT_DRV_H */
