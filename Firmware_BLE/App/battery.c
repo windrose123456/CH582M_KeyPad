@@ -61,3 +61,12 @@ float Battery_GetVoltage(void)
 
     return v_bat;
 }
+
+        // 电池 ADC (电池ADC读数4090，应该不正常，先看官方设计)
+        // static uint32_t temp_test_tick = 0;
+        // if(TMOS_GetSystemClock() - temp_test_tick > 2000)
+        // {
+        //     uint16_t battery_adc_raw_data = Battery_ReadRaw();
+        //     printf("battery_adc_raw_data = %d\n", battery_adc_raw_data);
+        //     temp_test_tick = TMOS_GetSystemClock();
+        // }

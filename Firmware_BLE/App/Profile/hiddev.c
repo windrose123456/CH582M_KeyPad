@@ -18,7 +18,6 @@
 #include "battservice.h"
 #include "scanparamservice.h"
 #include "devinfoservice.h"
-#include "hidkbd.h"
 #include "hiddev.h"
 
 /*********************************************************************

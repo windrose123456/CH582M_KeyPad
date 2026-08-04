@@ -1,4 +1,6 @@
 #include "keypad.h"
+#include "ec11.h"
+#include "usb_hid.h"
 // 矩阵扫描与防抖。管理所有按键的物理读取、消抖状态机。
 
 // 引脚配置数组（顺序与 KEY_INDEX 对应）
@@ -91,6 +93,5 @@ uint16_t KeyPad_GetBitmap(void) {
     }
     return bitmap;
 }
-
 
 

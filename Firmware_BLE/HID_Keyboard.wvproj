@@ -58,7 +58,15 @@
 					"${project}/StdPeriphDriver/CH57x_timer3.c",
 					"${project}/StdPeriphDriver/CH57x_uart0.c",
 					"${project}/StdPeriphDriver/CH57x_uart2.c",
-					"${project}/StdPeriphDriver/CH57x_uart3.c"
+					"${project}/StdPeriphDriver/CH57x_uart3.c",
+					"${project}/App/hidkbd.h",
+					"${project}/App/hidkbd.c",
+					"${project}/App/fingerprint_drv.c",
+					"${project}/App/fingerprint_drv.h",
+					"${project}/HAL/KEY.c",
+					"${project}/HAL/KEY.h",
+					"${project}/HAL/LED.c",
+					"${project}/HAL/LED.h"
 				],
 				"optimization": {
 					"level": "size",

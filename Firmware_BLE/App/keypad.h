@@ -1,12 +1,10 @@
 #ifndef __KEYPAD_H__
 #define __KEYPAD_H__
 
-#include "CH58x_common.h"
+#include "CONFIG.h"
 
 // 按键数量
 #define KEY_NUM         15
-// 按键扫描频率
-#define KEYSCAN_INTERVAL_TICK     3    // 3 × 0.625ms ≈ 1.875ms ≈ 533Hz
 
 /*
 A1 A15  A7 B8   7 8 9 DELETE
@@ -99,8 +97,8 @@ extern const KeyPinConfig_t key_config[KEY_NUM];
 
 extern volatile uint8_t g_key_changed;   
 
-void KeyPad_Init(void);
 uint8_t KeyPad_Scan(void);
 uint16_t KeyPad_GetBitmap(void);
+void KeyPad_Init(void);
 
 #endif
