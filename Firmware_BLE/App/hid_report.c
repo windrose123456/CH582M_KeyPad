@@ -20,6 +20,7 @@
 #include "ble_hid.h"
 #include "keypad.h"
 #include "ec11.h"
+#include "sleep.h"
 
 #define KEY_SCAN_PERIODIC_EVT   0x0001
 #define EC11_SCAN_PERIODIC_EVT  0x0002
@@ -138,6 +139,7 @@ void HID_SendKeyboardReport(uint16_t bitmap) {
         /* BLE mode: direct bitmap, no report ID in payload */
         BLE_HID_SendKbdReport(bitmap);
     }
+    last_send_date_tick = TMOS_GetSystemClock();
 }
 
 void HID_SendConsumerReport(uint8_t value) {
@@ -148,6 +150,7 @@ void HID_SendConsumerReport(uint8_t value) {
         USB_HID_SendReport(consumerReport, 2);
     }
     /* BLE consumer control: extend here if BLE supports it */
+    last_send_date_tick = TMOS_GetSystemClock();
 }
 
 

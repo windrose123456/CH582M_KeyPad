@@ -35,7 +35,19 @@ void EC11_Init(void) {
     PFIC_EnableIRQ(GPIO_B_IRQn);
 }
 
-// ==================== 获取接口 ====================
+void EC11_SetStep(void) {
+    // 读取B相当前电平判断方向
+    s_step = ReadPin(EC11_B_PIN) ? -1 : 1;
+}
+
+void EC11_SetKeyState(void) {
+    if (TMOS_GetSystemClock() - EC11_key_press_time > 200) 
+    {
+        EC11_key_press_time = TMOS_GetSystemClock();
+        s_key_state = EC11_KEY_PRESSED;
+    }
+}
+
 int16_t EC11_GetStep(void) {
     return s_step;
 }
@@ -50,31 +62,4 @@ void EC11_ResetStep(void) {
 
 void EC11_ResetKey(void) {
     s_key_state = EC11_KEY_RELEASED;
-}
-
-__INTERRUPT __HIGH_CODE void GPIOB_IRQHandler(void)
-{
-    if(enter_sleep_flag == 1 
-        && GPIOB_ReadITFlagBit(KEY_ENTER_PIN | KEY_DELETE_PIN | KEY_ALT_PIN | KEY_WIN_PIN))
-    {
-        GPIOB_ClearITFlagBit(KEY_ENTER_PIN | KEY_DELETE_PIN | KEY_ALT_PIN | KEY_WIN_PIN);
-        wakeup_source = 2;  // 标记是 GPIOB 唤醒的
-        return;
-    }
-
-    if (GPIOB_ReadITFlagBit(EC11_A_PIN))
-    {
-        GPIOB_ClearITFlagBit(EC11_A_PIN);
-        // 读取B相当前电平判断方向
-        s_step = ReadPin(EC11_B_PIN) ? -1 : 1;
-    }
-    if (GPIOB_ReadITFlagBit(EC11_D_PIN))
-    {
-        GPIOB_ClearITFlagBit(EC11_D_PIN);
-        if (TMOS_GetSystemClock() - EC11_key_press_time > 300) 
-        {
-            EC11_key_press_time = TMOS_GetSystemClock();
-            s_key_state = EC11_KEY_PRESSED;
-        }
-    }
 }

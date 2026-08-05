@@ -90,9 +90,9 @@ static hidRptMap_t *pHidDevRptTbl;
 
 static uint8_t hidDevRptTblLen;
 
-static hidDevCB_t *pHidDevCB;
+static bleHidDevCB_t *pHidDevCB;
 
-static hidDevCfg_t *pHidDevCfg;
+static bleHidDevCfg_t *pHidDevCfg;
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -243,7 +243,7 @@ uint16_t HidDev_ProcessEvent(uint8_t task_id, uint16_t events)
 }
 
 /*********************************************************************
- * @fn      HidDev_Register
+ * @fn      BleHidDev_Register
  *
  * @brief   Register a callback function with HID Dev.
  *
@@ -252,7 +252,7 @@ uint16_t HidDev_ProcessEvent(uint8_t task_id, uint16_t events)
  *
  * @return  None.
  */
-void HidDev_Register(hidDevCfg_t *pCfg, hidDevCB_t *pCBs)
+void BleHidDev_Register(bleHidDevCfg_t *pCfg, bleHidDevCB_t *pCBs)
 {
     pHidDevCB = pCBs;
     pHidDevCfg = pCfg;

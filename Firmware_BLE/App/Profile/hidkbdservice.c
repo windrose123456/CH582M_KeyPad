@@ -455,14 +455,14 @@ gattServiceCBs_t hidKbdCBs = {
  */
 
 /*********************************************************************
- * @fn      Hid_AddService
+ * @fn      BleHid_AddService
  *
  * @brief   Initializes the HID Service by registering
  *          GATT attributes with the GATT server.
  *
  * @return  Success or Failure
  */
-bStatus_t Hid_AddService(void)
+bStatus_t BleHid_AddService(void)
 {
     uint8_t status = SUCCESS;
 

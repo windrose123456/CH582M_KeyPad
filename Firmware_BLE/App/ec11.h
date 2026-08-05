@@ -16,7 +16,8 @@ typedef enum {
 
 /* ======================== 外部接口 ======================== */
 void EC11_Init(void);                       // 初始化 GPIO
-void EC11_Scan(void);                       // 定时扫描
+void EC11_SetStep(void);                    // 设置旋转方向
+void EC11_SetKeyState(void);                // 设置按键状态
 int16_t EC11_GetStep(void);                 // 获取旋转方向
 EC11_KeyState_t EC11_GetKeyState(void);     // 获取按键状态（已消抖）
 void EC11_ResetStep(void);                  // 重置步数为 0

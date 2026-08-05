@@ -1,7 +1,7 @@
 #ifndef __WS2812_H__
 #define __WS2812_H__
 
-#include "CH58x_common.h"
+#include "CONFIG.h"
 
 #define WS2812B_PIN     GPIO_Pin_5
 #define WS2812B_PORT    GPIOB

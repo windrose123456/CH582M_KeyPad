@@ -54,7 +54,7 @@ extern "C" {
  */
 
 /*********************************************************************
- * @fn      Hid_AddService
+ * @fn      BleHid_AddService
  *
  * @brief   Initializes the HID service for keyboard by registering
  *          GATT attributes with the GATT server.
@@ -63,7 +63,7 @@ extern "C" {
  *
  * @return  Success or Failure
  */
-extern bStatus_t Hid_AddService(void);
+extern bStatus_t BleHid_AddService(void);
 
 /*********************************************************************
  * @fn      Hid_SetParameter

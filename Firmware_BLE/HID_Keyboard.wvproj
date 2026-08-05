@@ -66,7 +66,11 @@
 					"${project}/HAL/KEY.c",
 					"${project}/HAL/KEY.h",
 					"${project}/HAL/LED.c",
-					"${project}/HAL/LED.h"
+					"${project}/HAL/LED.h",
+					"${project}/App/ws2812b.c",
+					"${project}/App/ws2812b.h",
+					"${project}/HAL/SLEEP.h",
+					"${project}/HAL/SLEEP.c"
 				],
 				"optimization": {
 					"level": "size",

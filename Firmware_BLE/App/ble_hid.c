@@ -129,7 +129,7 @@ static uint8_t advertData[] = {
 static const uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "HID Keyboard";
 
 // HID Dev configuration
-static hidDevCfg_t hidEmuCfg = {
+static bleHidDevCfg_t bleHidEmuCfg = {
     DEFAULT_HID_IDLE_TIMEOUT, // Idle timeout
     HID_FEATURE_FLAGS         // HID feature flags
 };
@@ -149,7 +149,7 @@ static void    hidEmuStateCB(gapRole_States_t newState, gapRoleEvent_t *pEvent);
  * PROFILE CALLBACKS
  */
 
-static hidDevCB_t hidEmuHidCBs = {
+static bleHidDevCB_t bleHidEmuHidCBs = {
     hidEmuRptCB,
     hidEmuEvtCB,
     NULL,
@@ -245,117 +245,13 @@ uint16_t BLE_HID_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ START_REPORT_EVT);
     }
 
-/*
-    // ===== 按键扫描发送事件 =====
-    if (events & START_KEYSCAN_EVT)
-    {
-        // EC11旋钮
-        int16_t step = EC11_GetStep();         
-        if (step != 0) {
-            last_key_tick = TMOS_GetSystemClock();
-            // 【重要】发送完按键后，必须发送一个空报告(0x00, 0x00)来表示按键已释放[reference:19][reference:20]
-            if (!USB_HID_IsReady()) // 目前EC11旋钮和按键没法进行唤醒，应该是固件问题，后面添加打印在看看EC11中有没有执行到DevWakeup()
-            {
-                DevWakeup();                          // ① 唤醒总线
-                mDelaymS(15);                         // ② 等待主机恢复
-            }
-
-            static uint32_t EC11_send_tick = 0;
-            if (EC11_send_tick == 0)
-            {
-                uint8_t consumerReport[2];
-                consumerReport[0] = 0x02;
-                consumerReport[1] = (step > 0) ? 0x01 : 0x02; 
-                
-                USB_HID_SendReport(consumerReport, 2);
-                EC11_send_tick = TMOS_GetSystemClock();
-                printf("Volume change send\n");
-            }
-            if (TMOS_GetSystemClock() - EC11_send_tick > 30)
-            {
-                uint8_t release_report[2] = {0x02, 0x00}; 
-                USB_HID_SendReport(release_report, 2);
-                EC11_send_tick = 0;
-                EC11_ResetStep();
-            }
-        }
-
-        // ----- 处理EC11按键事件 -----
-        if (EC11_GetKeyState()) {
-            last_key_tick = TMOS_GetSystemClock();
-            if (!USB_HID_IsReady()) 
-            {
-                DevWakeup();                          // ① 唤醒总线
-                mDelaymS(15);                         // ② 等待主机恢复
-            }
-
-            static uint32_t EC11_send_tick = 0;
-            if (EC11_send_tick == 0)
-            {
-                uint8_t consumerReport[2];
-                consumerReport[0] = 0x02;
-                consumerReport[1] = 0x04;
-                EC11_send_tick = TMOS_GetSystemClock();
-                USB_HID_SendReport(consumerReport, 2);
-                printf("Mute Toggle\n");
-            }
-            if (TMOS_GetSystemClock() - EC11_send_tick > 30)
-            {
-                uint8_t release_report[2] = {0x02, 0x00}; 
-                USB_HID_SendReport(release_report, 2);
-                EC11_send_tick = 0;
-                EC11_ResetKey();
-            }
-        }
-
-        //printf("KeyPad_Scan()\n");
-        static uint16_t last_bitmap = 0;
-        uint16_t current_bitmap = KeyPad_GetBitmap();
-        // 键值发生变化
-        if (current_bitmap != last_bitmap)
-        {
-            last_key_tick = TMOS_GetSystemClock();
-            if (!USB_HID_IsReady()) 
-            {
-                DevWakeup();                          // ① 唤醒总线
-                mDelaymS(15);                         // ② 等待主机恢复
-            }
-
-            extern uint8_t hidProtocolMode;
-            printf("proto_mode: %d, bitmap: 0x%04X\n", hidProtocolMode, current_bitmap);
-            printf("current_bitmap: %d\n", current_bitmap);
-            // 确认USB方式还是蓝牙方式发送
-            // 有键按下 → 发送按下报告
-            if (USB_HID_IsReady()) 
-            {
-                uint8_t consumerReport[3];
-                consumerReport[0] = 0x01; // 键盘 report ID = 0x01
-                consumerReport[1] = current_bitmap & 0xFF;
-                consumerReport[2] = (current_bitmap >> 8) & 0xFF;
-                printf("USB send\n");
-                USB_HID_SendReport(consumerReport, 3);
-            }
-            else 
-            {
-                printf("BLE send\n");
-                hidEmuSendKbdReport(current_bitmap); // 蓝牙发送
-            }
-            last_bitmap = current_bitmap;
-        }
-
-        // 再次扫描（自我循环）
-        tmos_start_task(task_id, START_KEYSCAN_EVT, KEYSCAN_INTERVAL_TICK);
-        return (events ^ START_KEYSCAN_EVT);
-    }
-*/
-
     return 0;
 }
 
 /*********************************************************************
- * @fn      HidEmu_Init
+ * @fn      BleHidEmu_Init
  *
- * @brief   Initialization function for the HidEmuKbd App Task.
+ * @brief   Initialization function for the BleHidEmuKbd App Task.
  *          This is called during initialization and should contain
  *          any application specific initialization (ie. hardware
  *          initialization/setup, table initialization, power up
@@ -366,7 +262,7 @@ uint16_t BLE_HID_ProcessEvent(uint8_t task_id, uint16_t events)
  *
  * @return  none
  */
-void HidEmu_Init()
+void BleHidEmu_Init()
 {
     bleHidTaskId = TMOS_ProcessEventRegister(BLE_HID_ProcessEvent);
 
@@ -405,10 +301,10 @@ void HidEmu_Init()
     }
 
     // Set up HID keyboard service
-    Hid_AddService();
+    BleHid_AddService();
 
     // Register for HID Dev callback
-    HidDev_Register(&hidEmuCfg, &hidEmuHidCBs);
+    BleHidDev_Register(&bleHidEmuCfg, &bleHidEmuHidCBs);
 
     // Setup a delayed profile startup
     tmos_set_event(bleHidTaskId, START_DEVICE_EVT);
@@ -603,7 +499,7 @@ void BLE_HID_Init(void)
 {
     GAPRole_PeripheralInit();
     HidDev_Init();
-    HidEmu_Init();
+    BleHidEmu_Init();
 }
 
 /*********************************************************************

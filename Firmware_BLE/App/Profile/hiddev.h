@@ -239,7 +239,7 @@ typedef struct
     uint32_t idleTimeout; // Idle timeout in milliseconds
     uint8_t  hidFlags;    // HID feature flags
 
-} hidDevCfg_t;
+} bleHidDevCfg_t;
 
 /*********************************************************************
  * Global Variables
@@ -274,7 +274,7 @@ typedef struct
     hidDevEvtCB_t         evtCB;
     hidDevPasscodeCB_t    passcodeCB;
     gapRolesStateNotify_t pfnStateChange; //!< Whenever the device changes state
-} hidDevCB_t;
+} bleHidDevCB_t;
 
 /*********************************************************************
  * @fn      HidDev_Init
@@ -308,7 +308,7 @@ extern void HidDev_Init(void);
 extern uint16_t HidDev_ProcessEvent(uint8_t task_id, uint16_t events);
 
 /*********************************************************************
- * @fn      HidDev_Register
+ * @fn      BleHidDev_Register
  *
  * @brief   Register a callback function with HID Dev.
  *
@@ -317,7 +317,7 @@ extern uint16_t HidDev_ProcessEvent(uint8_t task_id, uint16_t events);
  *
  * @return  None.
  */
-extern void HidDev_Register(hidDevCfg_t *pCfg, hidDevCB_t *pCBs);
+extern void BleHidDev_Register(bleHidDevCfg_t *pCfg, bleHidDevCB_t *pCBs);
 
 /*********************************************************************
  * @fn      HidDev_RegisterReports

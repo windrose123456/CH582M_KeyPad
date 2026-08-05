@@ -11,10 +11,7 @@
 #include "HAL.h"
 #include "main.h"
 #include "hid_report.h"
-
-volatile uint32_t last_key_tick = 0; // 低功耗模式使用
-volatile uint8_t enter_sleep_flag = 0; // 进入sleep mode 置1，唤醒中断置0
-volatile uint8_t wakeup_source = 0;
+#include "sleep.h"
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -26,13 +23,13 @@ const uint8_t MacAddr[6] = {0x84, 0xC2, 0xE4, 0x03, 0x02, 0x02};
 #endif
 
 /*********************************************************************
- * @fn      DevWakeup
+ * @fn      USB_Dev_Wakeup
  *
  * @brief   设备模式唤醒主机
  *
  * @return  none
  */
-void DevWakeup(void)
+void USB_Dev_Wakeup(void)
 {
     R16_PIN_ANALOG_IE &= ~(RB_PIN_USB_DP_PU);
     R8_UDEV_CTRL |= RB_UD_LOW_SPEED;
@@ -54,24 +51,10 @@ void Main_Circulation()
 {
     while(1)
     {
-        TMOS_SystemProcess();
+        TMOS_SystemProcess(); 
 
         // ===== 检查是否该休眠 ===== 
-        // 其实休眠更适合作为一个 tmos 任务，开定时器，超时直接进入tmos，运行完睡眠
-        // 或者 使用 TMOS 的 HAL_SLEEP，如果也是使用sleep模式，就修改成使用 TMOS 自动管理
-        // if (TMOS_GetSystemClock() - last_key_tick > SLEEP_TIMEOUT_MS) {  // 查询一下TMOS的低功耗管理 HAL_SLEEP，看一下任务调度
-        //     printf("Entering sleep mode...");
-        //     char buf[80];
-        //     int len = snprintf(buf, sizeof(buf), "last_key_tick: %u\r\n", (unsigned int)last_key_tick);
-        //     UART0_SendString((uint8_t *)buf, len);
-        //     len = snprintf(buf, sizeof(buf), "TMOS_GetSystemClock: %u, %u\r\n", 
-        //        (unsigned int)TMOS_GetSystemClock(), (unsigned int)last_key_tick);
-        //     UART0_SendString((uint8_t *)buf, len);
-        //     Enter_SleepMode();           // 阻塞在这里，直到唤醒
-        //     Wakeup_Reinit();             // 唤醒后执行
-        //     last_key_tick = TMOS_GetSystemClock();
-        //     printf("Wakeup complete, wakeup_source = %d\n", wakeup_source);
-        // }
+        Sleep_EnterCheck();
     }
 }
 
@@ -105,143 +88,18 @@ int main(void)
     HAL_Init();
 
     HID_Init();
-    // FP_Init();
-    // Battery_Init();
-    // WS2812B_Init(); // 灯控有问题，不要开启
-
-    // uint8_t uart3_test_data[] = "2222222222222";
-    // UART3_SendString(uart3_test_data, sizeof(uart3_test_data));
-
-    
 
     // 还需要看门狗
+    // 还需要实现：USB 和 BLE ，检测不到USB就禁用USB
+    // 看看下电模式是否可以通过GPIO中断唤醒，现在唤醒初始化已经等同于重新上电，或者看看能不能改成RAM供电也不保留了
 
-    last_key_tick = TMOS_GetSystemClock();
+    last_send_date_tick = TMOS_GetSystemClock();
     printf("all device init done\n");
     Main_Circulation();
-
-    //在不同模式中，按键扫描频率可以不一致，BLE没必要这么快
 }
 
 /******************************** endfile @ main ******************************/
 
-// 唤醒中断配置，使用sleep模式
-// void Sleep_WakeupConfig(void) {
-//     GPIOA_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
-//     GPIOB_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
-
-//     for (int i = 0; i < KEY_NUM; i++) {
-//         uint8_t port = key_config[i].port;
-//         uint32_t pin = key_config[i].pin;
-
-//         if (port == GPIOA) {
-//             GPIOA_ModeCfg(pin, GPIO_ModeIN_PU); // 上拉输入
-//             GPIOA_ITModeCfg(pin, GPIO_ITMode_FallEdge);
-//         } else {
-//             GPIOB_ModeCfg(pin, GPIO_ModeIN_PU);
-//             GPIOB_ITModeCfg(pin, GPIO_ITMode_FallEdge);
-//         }
-//     }
-//     GPIOB_ModeCfg(EC11_A_PIN, GPIO_ModeIN_PU);
-//     GPIOB_ModeCfg(EC11_B_PIN, GPIO_ModeIN_PU);
-//     GPIOB_ModeCfg(EC11_D_PIN, GPIO_ModeIN_PU);
-//     GPIOB_ITModeCfg(EC11_A_PIN, GPIO_ITMode_FallEdge);
-//     GPIOB_ITModeCfg(EC11_D_PIN, GPIO_ITMode_RiseEdge);
-
-//     GPIOA_ClearITFlagBit(0xFFFF);       // 清除挂起的中断标志
-//     GPIOB_ClearITFlagBit(0xFFFF);
-//     PFIC_EnableIRQ(GPIO_A_IRQn);          // 使能 GPIO 中断
-//     PFIC_EnableIRQ(GPIO_B_IRQn);
-//     PWR_PeriphWakeUpCfg(ENABLE, RB_SLP_GPIO_WAKE, Long_Delay); // 电源管理单元启用 GPIO 唤醒
-// }
-
-void Enter_SleepMode(void) {
-    // ① 关闭 USB（可选，看功耗要求）
-    // 如果需要 USB 远程唤醒则保留 USB，否则关闭
-    USB_DeviceDisable(); // 同时需要控制 sleep 模式USB供电
-
-    // ② 关闭其他外设时钟
-    // 关闭 UART、SPI、定时器等
-    // R8_CLK_SYS_CFG = 0x00;  // 具体值参考手册
-
-    // ③ 配置唤醒源
-    Sleep_WakeupConfig();
-
-    enter_sleep_flag = 1;
-
-    // ④ 进入待机
-    // 进入睡眠，只保留必要的 RAM
-    LowPower_Sleep(RB_PWR_RAM30K | RB_PWR_RAM2K);
-    // 保留 USB/BLE 单元，以实现快速 USB 唤醒，这个好像没啥用
-    // LowPower_Sleep(RB_PWR_RAM30K | RB_PWR_RAM2K | RB_PWR_EXTEND);
-
-    //LowPower_Sleep 函数内部为了确保可靠唤醒，会临时提高高频时钟（HSE）的偏置电流。因此，唤醒后必须调用 HSECFG_Current(HSE_RCur_100); 将其恢复为额定电流，否则功耗会偏高
-    // 被唤醒后，立即恢复高频时钟电流
-    HSECFG_Current(HSE_RCur_100);
-    enter_sleep_flag = 0;
-}
-
-void Wakeup_Reinit(void) {
-    // ① 关闭唤醒中断（防止抖动重复触发）
-    PFIC_DisableIRQ(GPIO_A_IRQn);
-    PFIC_DisableIRQ(GPIO_B_IRQn);
-
-#if(defined(DCDC_ENABLE)) && (DCDC_ENABLE == TRUE)
-    PWR_DCDCCfg(ENABLE);
-#endif
-    SetSysClock(CLK_SOURCE_PLL_60MHz);
-    mDelaymS(10);                         // 等待时钟稳定
-#if(defined(HAL_SLEEP)) && (HAL_SLEEP == TRUE)
-    GPIOA_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
-    GPIOB_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
-#endif
-#ifdef DEBUG 
-    GPIOB_SetBits(bTXD0);
-    GPIOB_ModeCfg(bTXD0, GPIO_ModeOut_PP_5mA);
-    UART0_DefInit();
-#endif
-    // 重新初始化蓝牙，待判断哪些函数需要重新执行，实现蓝牙功能再修改
-    // CH58X_BLEInit();
-    // HAL_Init();
-    // GAPRole_PeripheralInit();
-    // HidDev_Init();
-    // HidEmu_Init();
-
-    // // ③ 重新初始化 USB
-    // USB_HID_Init();
-    // 注意：主机可能需要几秒重新枚举
-    // 这期间不能发送 HID 报告
-
-    // ④ 重新初始化 GPIO 为正常工作模式
-    // 按键矩阵回到扫描模式
-
-    // ⑤ 重新初始化 EC11 编码器
-}
-
-uint8_t touch_irq_flag = 0;
-
-__INTERRUPT __HIGH_CODE void GPIOA_IRQHandler(void)
-{
-    // if (enter_sleep_flag == 1 && GPIOA_ReadITFlagBit(KEY_1_PIN | KEY_2_PIN 
-    //     | KEY_3_PIN | KEY_4_PIN | KEY_5_PIN | KEY_6_PIN | KEY_7_PIN 
-    //     | KEY_8_PIN | KEY_9_PIN | KEY_0_PIN | KEY_CTRL_PORT))
-    // {
-    //     GPIOA_ClearITFlagBit(KEY_1_PIN | KEY_2_PIN | KEY_3_PIN | KEY_4_PIN 
-    //         | KEY_5_PIN | KEY_6_PIN | KEY_7_PIN | KEY_8_PIN 
-    //         | KEY_9_PIN | KEY_0_PIN | KEY_CTRL_PORT);
-    //     wakeup_source = 1;  // 标记是 GPIOA 唤醒的
-    //     return;
-    // }
-
-    // if (GPIOA_ReadITFlagBit(TOUCH_IRQ_PIN))
-    // {
-    //     GPIOA_ClearITFlagBit(TOUCH_IRQ_PIN);
-    //     // 发送指纹模块采集指令
-    //     touch_irq_flag += 1;
-    //     //printf("touch_irq\n");
-
-    // }
-}
 
 
 
