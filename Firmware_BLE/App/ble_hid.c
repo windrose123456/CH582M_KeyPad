@@ -25,9 +25,6 @@
 #include "hiddev.h"
 #include "main.h"
 
-// HID keyboard input report length
-#define HID_KEYBOARD_IN_RPT_LEN              2
-
 // HID LED output report length
 #define HID_LED_OUT_RPT_LEN                  1
 
@@ -319,14 +316,11 @@ void BleHidEmu_Init()
  *
  * @return  none
  */
-void BLE_HID_SendKbdReport(uint16_t bitmap)
+void BLE_HID_SendReport(uint8_t report_id, uint8_t *data, uint8_t len)
 {
-    uint8_t report[HID_KEYBOARD_IN_RPT_LEN];
-    report[0] = bitmap & 0xFF;
-    report[1] = (bitmap >> 8) & 0xFF;
-    printf("BLE_HID_SendKbdReport func send\n");
-    HidDev_Report(HID_RPT_ID_KEY_IN, HID_REPORT_TYPE_INPUT,
-                  HID_KEYBOARD_IN_RPT_LEN, report);
+    printf("BLE_HID_SendReport func send\n");
+    HidDev_Report(report_id, HID_REPORT_TYPE_INPUT,
+                  len, data);
 }
 
 /*********************************************************************

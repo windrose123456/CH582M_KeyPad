@@ -23,22 +23,6 @@ const uint8_t MacAddr[6] = {0x84, 0xC2, 0xE4, 0x03, 0x02, 0x02};
 #endif
 
 /*********************************************************************
- * @fn      USB_Dev_Wakeup
- *
- * @brief   设备模式唤醒主机
- *
- * @return  none
- */
-void USB_Dev_Wakeup(void)
-{
-    R16_PIN_ANALOG_IE &= ~(RB_PIN_USB_DP_PU);
-    R8_UDEV_CTRL |= RB_UD_LOW_SPEED;
-    mDelaymS(2);
-    R8_UDEV_CTRL &= ~RB_UD_LOW_SPEED;
-    R16_PIN_ANALOG_IE |= RB_PIN_USB_DP_PU;
-}
-
-/*********************************************************************
  * @fn      Main_Circulation
  *
  * @brief   主循环
@@ -54,7 +38,7 @@ void Main_Circulation()
         TMOS_SystemProcess(); 
 
         // ===== 检查是否该休眠 ===== 
-        Sleep_EnterCheck();
+        // Sleep_EnterCheck();
     }
 }
 

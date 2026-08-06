@@ -630,6 +630,28 @@ void USB_HID_ClearReady()
     Ready = 0;
 }
 
+// 判断是否真的没有 USB 连接（设备未枚举）
+uint8_t USB_IsConnected(void) {
+    // 设备地址非 0 表示已被主机枚举过，USB 物理连接存在
+    return (R8_USB_DEV_AD & 0x7F) != 0;
+}
+
+/*********************************************************************
+ * @fn      USB_Dev_Wakeup
+ *
+ * @brief   设备模式唤醒主机
+ *
+ * @return  none
+ */
+void USB_Dev_Wakeup(void)
+{
+    R16_PIN_ANALOG_IE &= ~(RB_PIN_USB_DP_PU);
+    R8_UDEV_CTRL |= RB_UD_LOW_SPEED;
+    mDelaymS(2);
+    R8_UDEV_CTRL &= ~RB_UD_LOW_SPEED;
+    R16_PIN_ANALOG_IE |= RB_PIN_USB_DP_PU;
+}
+
 /*********************************************************************
  * @fn      USB_IRQHandler
  *

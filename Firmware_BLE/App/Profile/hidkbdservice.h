@@ -26,13 +26,13 @@ extern "C" {
  */
 
 // Number of HID reports defined in the service
-#define HID_NUM_REPORTS        7
+#define HID_NUM_REPORTS        2
 
 // HID Report IDs for the service
-#define HID_RPT_ID_KEY_IN      0                      // Keyboard input report ID
-#define HID_RPT_ID_MOUSE_IN    1                      // Mouse input report ID
-#define HID_RPT_ID_LED_OUT     0                      // LED output report ID
-#define HID_RPT_ID_FEATURE     0                      // Feature report ID
+#define HID_RPT_ID_KEY_IN      1      // 键盘输入报告 ID = 1
+#define HID_RPT_ID_MEDIA_IN    2      // 多媒体控制输入报告 ID = 2
+#define HID_RPT_ID_LED_OUT     3      // LED 输出报告 ID = 3
+//#define HID_RPT_ID_FEATURE     0      // 特性报告 ID = 0（暂时不用）
 
 // HID feature flags
 #define HID_FEATURE_FLAGS      HID_FLAGS_REMOTE_WAKE

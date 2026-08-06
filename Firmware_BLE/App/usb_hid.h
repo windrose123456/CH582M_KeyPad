@@ -29,4 +29,8 @@ uint8_t USB_HID_IsReady(void);
  */
 void USB_HID_ClearReady(void);
 
+uint8_t USB_IsConnected(void);
+
+void USB_Dev_Wakeup(void);
+
 #endif /* __USB_HID_H__ */

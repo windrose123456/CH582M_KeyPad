@@ -17,11 +17,7 @@
  */
 void BLE_HID_Init(void);
 
-/**
- * @brief  Send a keyboard bitmap report via BLE HID.
- * @param  bitmap  16-bit key bitmap (bit0=key1, bit1=key2, ...).
- */
-void BLE_HID_SendKbdReport(uint16_t bitmap);
+void BLE_HID_SendReport(uint8_t report_id, uint8_t *data, uint8_t len);
 
 /**
  * @brief  BLE HID TMOS event processor.

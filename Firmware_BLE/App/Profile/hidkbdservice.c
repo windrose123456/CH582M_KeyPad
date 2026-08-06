@@ -88,6 +88,7 @@ static const uint8_t hidInfo[HID_INFORMATION_LEN] = {
 static const uint8_t hidReportMap[] = {0x05, 0x01,                                                   //Generic Desktop
                             0x09, 0x06,                                                   //Keyboard   
                             0xA1, 0x01,                                                   //集合开始
+                            0x85, 0x01,        // <--- 新增：Report ID (1) 用于键盘
 
                             // ----- 第一段：数字1~9、0、Enter（0x1E ~ 0x28，共11个）-----
                             0x05, 0x07,                                                   //Keyboard Application
@@ -143,6 +144,35 @@ static const uint8_t hidReportMap[] = {0x05, 0x01,                              
                             0x75, 0x01,                                                   //Report Size
                             0x95, 0x01,                                                   //Report Counet
                             0x81, 0x03,                                                   //Input (Const)
+                            0xC0,
+
+                            // ----- Consumer Control（多媒体键）-----
+                            0x05, 0x0C,           // Usage Page (Consumer)
+                            0x09, 0x01,           // Usage (Consumer Control)
+                            0xA1, 0x01,           // Collection (Application)
+                            0x85, 0x02,           //   Report ID (2)
+                            
+                            // -------- 音量增大（位 0） --------
+                            0x09, 0xE9,           //   Usage (Volume Increment)
+                            0x15, 0x00,           //   Logical Minimum (0)
+                            0x25, 0x01,           //   Logical Maximum (1)
+                            0x75, 0x01,           //   Report Size (1)
+                            0x95, 0x01,           //   Report Count (1)
+                            0x81, 0x02,           //   Input (Data, Var, Abs)
+
+                            // -------- 音量减小（位 1） --------
+                            0x09, 0xEA,           //   Usage (Volume Decrement)
+                            0x81, 0x02,           //   Input (Data, Var, Abs)
+
+                            // -------- 静音切换（bit 2） --------
+                            0x09, 0xE2,           //   Usage (Mute)
+                            0x81, 0x02,           //   Input (Data, Var, Abs)
+
+                            // -------- 填充5位，对齐到整字节 --------
+                            0x75, 0x05,           //   Report Size (5)   ← 从6改为5
+                            0x95, 0x01,           //   Report Count (1)
+                            0x81, 0x01,           //   Input (Cnst, Var, Abs)
+
                             0xC0};
 
 // HID report map length
@@ -155,70 +185,52 @@ static hidRptMap_t hidRptMap[HID_NUM_REPORTS];
  * Profile Attributes - variables
  */
 
-// HID Service attribute
+// ==================== 1. HID Service 声明 ====================
 static const gattAttrType_t hidService = {ATT_BT_UUID_SIZE, hidServUUID};
 
-// Include attribute (Battery service)
-static uint16_t include = GATT_INVALID_HANDLE;
+// ==================== 2. 包含服务（电池） ====================
+static uint16_t include = GATT_INVALID_HANDLE;  // 将由协议栈自动填充句柄
 
-// HID Information characteristic
+// ==================== 3. HID 信息特性 ====================
 static uint8_t hidInfoProps = GATT_PROP_READ;
 
-// HID Report Map characteristic
+// ==================== 4. HID 报告映射特性 ====================
 static uint8_t hidReportMapProps = GATT_PROP_READ;
 
-// HID External Report Reference Descriptor
-static uint8_t hidExtReportRefDesc[ATT_BT_UUID_SIZE] =
-    {LO_UINT16(BATT_LEVEL_UUID), HI_UINT16(BATT_LEVEL_UUID)};
-
-// HID Control Point characteristic
-static uint8_t hidControlPointProps = GATT_PROP_WRITE_NO_RSP;
-static uint8_t hidControlPoint;
-
-// HID Protocol Mode characteristic
+// ==================== 5. HID 协议模式特性 ====================
+// 注意：虽然这个特性是“可选”的，但很多主机（如 Windows）会要求它存在，
+// 所以建议保留，值设为 REPORT 协议模式（0x01）
 static uint8_t hidProtocolModeProps = GATT_PROP_READ | GATT_PROP_WRITE_NO_RSP;
-uint8_t        hidProtocolMode = HID_PROTOCOL_MODE_REPORT;
+uint8_t hidProtocolMode = HID_PROTOCOL_MODE_REPORT;  // 0x01
 
-// HID Report characteristic, key input
+// ==================== 6. 键盘输入报告（ID = 1） ====================
 static uint8_t       hidReportKeyInProps = GATT_PROP_READ | GATT_PROP_NOTIFY;
-static uint8_t       hidReportKeyIn;
-static gattCharCfg_t hidReportKeyInClientCharCfg[GATT_MAX_NUM_CONN];
+static uint8_t       hidReportKeyIn[2];  // 长度 2 字节（不含 ID）
+static uint16_t hidReportKeyInClientCharCfg = 0;
 
-// HID Report Reference characteristic descriptor, key input
 static uint8_t hidReportRefKeyIn[HID_REPORT_REF_LEN] =
     {HID_RPT_ID_KEY_IN, HID_REPORT_TYPE_INPUT};
 
-// HID Report characteristic, LED output
-static uint8_t hidReportLedOutProps = GATT_PROP_READ | GATT_PROP_WRITE | GATT_PROP_WRITE_NO_RSP;
-static uint8_t hidReportLedOut;
+// ==================== 7. 多媒体输入报告（ID = 2） ====================
+static uint8_t       hidReportMediaInProps = GATT_PROP_READ | GATT_PROP_NOTIFY;
+static uint8_t       hidReportMediaIn[1];   // 1 字节载荷（不含 ID），与描述符一致
+static uint16_t      hidReportMediaInClientCharCfg = 0;  // 单连接场景，单个变量即可
 
-// HID Report Reference characteristic descriptor, LED output
-static uint8_t hidReportRefLedOut[HID_REPORT_REF_LEN] =
-    {HID_RPT_ID_LED_OUT, HID_REPORT_TYPE_OUTPUT};
+static uint8_t hidReportRefMediaIn[HID_REPORT_REF_LEN] =
+    {HID_RPT_ID_MEDIA_IN, HID_REPORT_TYPE_INPUT};
 
-// HID Boot Keyboard Input Report
-static uint8_t       hidReportBootKeyInProps = GATT_PROP_READ | GATT_PROP_NOTIFY;
-static uint8_t       hidReportBootKeyIn;
-static gattCharCfg_t hidReportBootKeyInClientCharCfg[GATT_MAX_NUM_CONN];
-
-// HID Boot Keyboard Output Report
-static uint8_t hidReportBootKeyOutProps = GATT_PROP_READ | GATT_PROP_WRITE | GATT_PROP_WRITE_NO_RSP;
-static uint8_t hidReportBootKeyOut;
-
-// Feature Report
-static uint8_t hidReportFeatureProps = GATT_PROP_READ | GATT_PROP_WRITE;
-static uint8_t hidReportFeature;
-
-// HID Report Reference characteristic descriptor, Feature
-static uint8_t hidReportRefFeature[HID_REPORT_REF_LEN] =
-    {HID_RPT_ID_FEATURE, HID_REPORT_TYPE_FEATURE};
+// ==================== 8. LED 输出报告（ID = 3，留待后续启用） ====================
+// static uint8_t hidReportLedOutProps = GATT_PROP_READ | GATT_PROP_WRITE | GATT_PROP_WRITE_NO_RSP;
+// static uint8_t hidReportLedOut;
+// static uint8_t hidReportRefLedOut[HID_REPORT_REF_LEN] =
+//     {HID_RPT_ID_LED_OUT, HID_REPORT_TYPE_OUTPUT};
 
 /*********************************************************************
  * Profile Attributes - Table
  */
 
 static gattAttribute_t hidAttrTbl[] = {
-    // HID Service
+    // ====== 1. HID Service 声明 ======
     {
         {ATT_BT_UUID_SIZE, primaryServiceUUID}, /* type */
         GATT_PERMIT_READ,                       /* permissions */
@@ -231,208 +243,151 @@ static gattAttribute_t hidAttrTbl[] = {
         {ATT_BT_UUID_SIZE, includeUUID},
         GATT_PERMIT_READ,
         0,
-        (uint8_t *)&include},
+        (uint8_t *)&include
+    },
 
-    // HID Information characteristic declaration
+    // ====== 2. HID 信息特性 ======
     {
         {ATT_BT_UUID_SIZE, characterUUID},
         GATT_PERMIT_READ,
         0,
-        &hidInfoProps},
+        &hidInfoProps
+    },
 
     // HID Information characteristic
     {
         {ATT_BT_UUID_SIZE, hidInfoUUID},
-        GATT_PERMIT_ENCRYPT_READ,
+        GATT_PERMIT_READ,
         0,
-        (uint8_t *)hidInfo},
+        (uint8_t *)hidInfo
+    },
 
-    // HID Control Point characteristic declaration
+    // ====== 3. HID 协议模式特性 ======
     {
         {ATT_BT_UUID_SIZE, characterUUID},
         GATT_PERMIT_READ,
         0,
-        &hidControlPointProps},
-
-    // HID Control Point characteristic
-    {
-        {ATT_BT_UUID_SIZE, hidControlPointUUID},
-        GATT_PERMIT_ENCRYPT_WRITE,
-        0,
-        &hidControlPoint},
-
-    // HID Protocol Mode characteristic declaration
-    {
-        {ATT_BT_UUID_SIZE, characterUUID},
-        GATT_PERMIT_READ,
-        0,
-        &hidProtocolModeProps},
+        &hidProtocolModeProps
+    },
 
     // HID Protocol Mode characteristic
     {
         {ATT_BT_UUID_SIZE, hidProtocolModeUUID},
-        GATT_PERMIT_ENCRYPT_READ | GATT_PERMIT_ENCRYPT_WRITE,
+        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        &hidProtocolMode},
-
-    // HID Report Map characteristic declaration
-    {
-        {ATT_BT_UUID_SIZE, characterUUID},
-        GATT_PERMIT_READ,
-        0,
-        &hidReportMapProps},
-
-    // HID Report Map characteristic
-    {
-        {ATT_BT_UUID_SIZE, hidReportMapUUID},
-        GATT_PERMIT_ENCRYPT_READ,
-        0,
-        (uint8_t *)hidReportMap},
-
-    // HID External Report Reference Descriptor
-    {
-        {ATT_BT_UUID_SIZE, extReportRefUUID},
-        GATT_PERMIT_READ,
-        0,
-        hidExtReportRefDesc
-
+        &hidProtocolMode
     },
 
-    // HID Report characteristic, key input declaration
+    // ====== 4. HID 报告映射特性（必须） ======
     {
         {ATT_BT_UUID_SIZE, characterUUID},
         GATT_PERMIT_READ,
         0,
-        &hidReportKeyInProps},
+        &hidReportMapProps
+    },
+
+    {
+        {ATT_BT_UUID_SIZE, hidReportMapUUID},
+        GATT_PERMIT_READ,
+        0,
+        (uint8_t *)hidReportMap
+    },
+
+    // ====== 5. 键盘输入报告（ID = 1） ======
+    {
+        {ATT_BT_UUID_SIZE, characterUUID},
+        GATT_PERMIT_READ,
+        0,
+        &hidReportKeyInProps
+    },
 
     // HID Report characteristic, key input
     {
         {ATT_BT_UUID_SIZE, hidReportUUID},
-        GATT_PERMIT_ENCRYPT_READ,
+        GATT_PERMIT_READ,
         0,
-        &hidReportKeyIn},
+        hidReportKeyIn},
 
     // HID Report characteristic client characteristic configuration
     {
         {ATT_BT_UUID_SIZE, clientCharCfgUUID},
-        GATT_PERMIT_READ | GATT_PERMIT_ENCRYPT_WRITE,
+        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        (uint8_t *)&hidReportKeyInClientCharCfg},
+        (uint8_t *)&hidReportKeyInClientCharCfg
+    },
 
     // HID Report Reference characteristic descriptor, key input
     {
         {ATT_BT_UUID_SIZE, reportRefUUID},
         GATT_PERMIT_READ,
         0,
-        hidReportRefKeyIn},
+        hidReportRefKeyIn
+    },
 
-    // HID Report characteristic, LED output declaration
+    // ====== 6. 多媒体输入报告（ID = 2） ======
     {
         {ATT_BT_UUID_SIZE, characterUUID},
         GATT_PERMIT_READ,
         0,
-        &hidReportLedOutProps},
-
-    // HID Report characteristic, LED output
+        &hidReportMediaInProps     
+    },
     {
         {ATT_BT_UUID_SIZE, hidReportUUID},
-        GATT_PERMIT_ENCRYPT_READ | GATT_PERMIT_ENCRYPT_WRITE,
-        0,
-        &hidReportLedOut},
-
-    // HID Report Reference characteristic descriptor, LED output
-    {
-        {ATT_BT_UUID_SIZE, reportRefUUID},
         GATT_PERMIT_READ,
         0,
-        hidReportRefLedOut},
-
-    // HID Boot Keyboard Input Report declaration
-    {
-        {ATT_BT_UUID_SIZE, characterUUID},
-        GATT_PERMIT_READ,
-        0,
-        &hidReportBootKeyInProps},
-
-    // HID Boot Keyboard Input Report
-    {
-        {ATT_BT_UUID_SIZE, hidBootKeyInputUUID},
-        GATT_PERMIT_ENCRYPT_READ,
-        0,
-        &hidReportBootKeyIn},
-
-    // HID Boot Keyboard Input Report characteristic client characteristic configuration
+        hidReportMediaIn          
+    },
     {
         {ATT_BT_UUID_SIZE, clientCharCfgUUID},
-        GATT_PERMIT_READ | GATT_PERMIT_ENCRYPT_WRITE,
+        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        (uint8_t *)&hidReportBootKeyInClientCharCfg},
-
-    // HID Boot Keyboard Output Report declaration
-    {
-        {ATT_BT_UUID_SIZE, characterUUID},
-        GATT_PERMIT_READ,
-        0,
-        &hidReportBootKeyOutProps},
-
-    // HID Boot Keyboard Output Report
-    {
-        {ATT_BT_UUID_SIZE, hidBootKeyOutputUUID},
-        GATT_PERMIT_ENCRYPT_READ | GATT_PERMIT_ENCRYPT_WRITE,
-        0,
-        &hidReportBootKeyOut},
-
-    // Feature Report declaration
-    {
-        {ATT_BT_UUID_SIZE, characterUUID},
-        GATT_PERMIT_READ,
-        0,
-        &hidReportFeatureProps},
-
-    // Feature Report
-    {
-        {ATT_BT_UUID_SIZE, hidReportUUID},
-        GATT_PERMIT_ENCRYPT_READ | GATT_PERMIT_ENCRYPT_WRITE,
-        0,
-        &hidReportFeature},
-
-    // HID Report Reference characteristic descriptor, feature
+        (uint8_t *)&hidReportMediaInClientCharCfg 
+    },
     {
         {ATT_BT_UUID_SIZE, reportRefUUID},
         GATT_PERMIT_READ,
         0,
-        hidReportRefFeature},
+        hidReportRefMediaIn        // {ID=2, TYPE=INPUT}
+    },
+
+    // // HID Report characteristic, LED output declaration
+    // {
+    //     {ATT_BT_UUID_SIZE, characterUUID},
+    //     GATT_PERMIT_READ,
+    //     0,
+    //     &hidReportLedOutProps
+    // },
+
+    // // HID Report characteristic, LED output
+    // {
+    //     {ATT_BT_UUID_SIZE, hidReportUUID},
+    //     GATT_PERMIT_ENCRYPT_READ | GATT_PERMIT_ENCRYPT_WRITE,
+    //     0,
+    //     &hidReportLedOut
+    // },
 };
 
 // Attribute index enumeration-- these indexes match array elements above
-enum
-{
-    HID_SERVICE_IDX,             // HID Service
-    HID_INCLUDED_SERVICE_IDX,    // Included Service
-    HID_INFO_DECL_IDX,           // HID Information characteristic declaration
-    HID_INFO_IDX,                // HID Information characteristic
-    HID_CONTROL_POINT_DECL_IDX,  // HID Control Point characteristic declaration
-    HID_CONTROL_POINT_IDX,       // HID Control Point characteristic
-    HID_PROTOCOL_MODE_DECL_IDX,  // HID Protocol Mode characteristic declaration
-    HID_PROTOCOL_MODE_IDX,       // HID Protocol Mode characteristic
-    HID_REPORT_MAP_DECL_IDX,     // HID Report Map characteristic declaration
-    HID_REPORT_MAP_IDX,          // HID Report Map characteristic
-    HID_EXT_REPORT_REF_DESC_IDX, // HID External Report Reference Descriptor
-    HID_REPORT_KEY_IN_DECL_IDX,  // HID Report characteristic, key input declaration
-    HID_REPORT_KEY_IN_IDX,       // HID Report characteristic, key input
-    HID_REPORT_KEY_IN_CCCD_IDX,  // HID Report characteristic client characteristic configuration
-    HID_REPORT_REF_KEY_IN_IDX,   // HID Report Reference characteristic descriptor, key input
-    HID_REPORT_LED_OUT_DECL_IDX, // HID Report characteristic, LED output declaration
-    HID_REPORT_LED_OUT_IDX,      // HID Report characteristic, LED output
-    HID_REPORT_REF_LED_OUT_IDX,  // HID Report Reference characteristic descriptor, LED output
-    HID_BOOT_KEY_IN_DECL_IDX,    // HID Boot Keyboard Input Report declaration
-    HID_BOOT_KEY_IN_IDX,         // HID Boot Keyboard Input Report
-    HID_BOOT_KEY_IN_CCCD_IDX,    // HID Boot Keyboard Input Report characteristic client characteristic configuration
-    HID_BOOT_KEY_OUT_DECL_IDX,   // HID Boot Keyboard Output Report declaration
-    HID_BOOT_KEY_OUT_IDX,        // HID Boot Keyboard Output Report
-    HID_FEATURE_DECL_IDX,        // Feature Report declaration
-    HID_FEATURE_IDX,             // Feature Report
-    HID_REPORT_REF_FEATURE_IDX   // HID Report Reference characteristic descriptor, feature
+enum {
+    HID_SERVICE_IDX,
+    HID_INCLUDED_SERVICE_IDX,
+    HID_INFO_CHAR_IDX,
+    HID_INFO_IDX,
+    HID_PROTOCOL_MODE_CHAR_IDX,
+    HID_PROTOCOL_MODE_IDX,
+    HID_REPORT_MAP_CHAR_IDX,
+    HID_REPORT_MAP_IDX,
+    // 键盘输入报告
+    HID_REPORT_KEY_IN_CHAR_IDX,
+    HID_REPORT_KEY_IN_IDX,
+    HID_REPORT_KEY_IN_CCCD_IDX,
+    HID_REPORT_KEY_IN_REF_IDX,
+    // 多媒体输入报告
+    HID_REPORT_MEDIA_IN_CHAR_IDX,
+    HID_REPORT_MEDIA_IN_IDX,
+    HID_REPORT_MEDIA_IN_CCCD_IDX,
+    HID_REPORT_MEDIA_IN_REF_IDX,
+    HID_NUM_ATTRS  // 总属性数
 };
 
 /*********************************************************************
@@ -467,12 +422,12 @@ bStatus_t BleHid_AddService(void)
     uint8_t status = SUCCESS;
 
     // Initialize Client Characteristic Configuration attributes
-    GATTServApp_InitCharCfg(INVALID_CONNHANDLE, hidReportKeyInClientCharCfg);
-    GATTServApp_InitCharCfg(INVALID_CONNHANDLE, hidReportBootKeyInClientCharCfg);
+    // GATTServApp_InitCharCfg(INVALID_CONNHANDLE, hidReportKeyInClientCharCfg);
+    // GATTServApp_InitCharCfg(INVALID_CONNHANDLE, hidReportBootKeyInClientCharCfg);
 
     // Register GATT attribute list and CBs with GATT Server App
     status = GATTServApp_RegisterService(hidAttrTbl, GATT_NUM_ATTRS(hidAttrTbl), GATT_MAX_ENCRYPT_KEY_SIZE, &hidKbdCBs);
-
+    
     // Set up included service
     Batt_GetParameter(BATT_PARAM_SERVICE_HANDLE,
                       &GATT_INCLUDED_HANDLE(hidAttrTbl, HID_INCLUDED_SERVICE_IDX));
@@ -487,41 +442,33 @@ bStatus_t BleHid_AddService(void)
     hidRptMap[0].cccdHandle = hidAttrTbl[HID_REPORT_KEY_IN_CCCD_IDX].handle;
     hidRptMap[0].mode = HID_PROTOCOL_MODE_REPORT;
 
-    // LED output report
-    hidRptMap[1].id = hidReportRefLedOut[0];
-    hidRptMap[1].type = hidReportRefLedOut[1];
-    hidRptMap[1].handle = hidAttrTbl[HID_REPORT_LED_OUT_IDX].handle;
-    hidRptMap[1].cccdHandle = 0;
+    // 多媒体输入报告
+    hidRptMap[1].id = hidReportRefMediaIn[0];
+    hidRptMap[1].type = hidReportRefMediaIn[1];
+    hidRptMap[1].handle = hidAttrTbl[HID_REPORT_MEDIA_IN_IDX].handle;   // 你需要定义这个索引宏
+    hidRptMap[1].cccdHandle = hidAttrTbl[HID_REPORT_MEDIA_IN_CCCD_IDX].handle; // 同上
     hidRptMap[1].mode = HID_PROTOCOL_MODE_REPORT;
 
-    // Boot keyboard input report
-    // Use same ID and type as key input report
-    hidRptMap[2].id = hidReportRefKeyIn[0];
-    hidRptMap[2].type = hidReportRefKeyIn[1];
-    hidRptMap[2].handle = hidAttrTbl[HID_BOOT_KEY_IN_IDX].handle;
-    hidRptMap[2].cccdHandle = hidAttrTbl[HID_BOOT_KEY_IN_CCCD_IDX].handle;
-    hidRptMap[2].mode = HID_PROTOCOL_MODE_BOOT;
-
-    // Boot keyboard output report
-    // Use same ID and type as LED output report
-    hidRptMap[3].id = hidReportRefLedOut[0];
-    hidRptMap[3].type = hidReportRefLedOut[1];
-    hidRptMap[3].handle = hidAttrTbl[HID_BOOT_KEY_OUT_IDX].handle;
-    hidRptMap[3].cccdHandle = 0;
-    hidRptMap[3].mode = HID_PROTOCOL_MODE_BOOT;
-
-    // Feature report
-    hidRptMap[4].id = hidReportRefFeature[0];
-    hidRptMap[4].type = hidReportRefFeature[1];
-    hidRptMap[4].handle = hidAttrTbl[HID_FEATURE_IDX].handle;
-    hidRptMap[4].cccdHandle = 0;
-    hidRptMap[4].mode = HID_PROTOCOL_MODE_REPORT;
-
-    // Battery level input report
-    Batt_GetParameter(BATT_PARAM_BATT_LEVEL_IN_REPORT, &(hidRptMap[5]));
+    // LED output report
+    // hidRptMap[1].id = hidReportRefLedOut[0];
+    // hidRptMap[1].type = hidReportRefLedOut[1];
+    // hidRptMap[1].handle = hidAttrTbl[HID_REPORT_LED_OUT_IDX].handle;
+    // hidRptMap[1].cccdHandle = 0;
+    // hidRptMap[1].mode = HID_PROTOCOL_MODE_REPORT;
 
     // Setup report ID map
     HidDev_RegisterReports(HID_NUM_REPORTS, hidRptMap);
+    PRINT("HID Service registered, handle: 0x%04x\n", hidAttrTbl[HID_SERVICE_IDX].handle);
+    PRINT("Report Map handle: 0x%04x\n", hidAttrTbl[HID_REPORT_MAP_IDX].handle);
+    PRINT("Key input handle: 0x%04x, CCCD handle: 0x%04x\n", 
+        hidAttrTbl[HID_REPORT_KEY_IN_IDX].handle,
+        hidAttrTbl[HID_REPORT_KEY_IN_CCCD_IDX].handle);
+    PRINT("Media input handle: 0x%04x, CCCD handle: 0x%04x\n", 
+       hidAttrTbl[HID_REPORT_MEDIA_IN_IDX].handle,
+       hidAttrTbl[HID_REPORT_MEDIA_IN_CCCD_IDX].handle);
+
+// 新增：打印服务中属性总数
+    PRINT("Total attributes in service: %d\n", GATT_NUM_ATTRS(hidAttrTbl));
 
     return (status);
 }
@@ -545,54 +492,6 @@ bStatus_t BleHid_AddService(void)
 uint8_t Hid_SetParameter(uint8_t id, uint8_t type, uint16_t uuid, uint8_t len, void *pValue)
 {
     bStatus_t ret = SUCCESS;
-
-    switch(uuid)
-    {
-        case REPORT_UUID:
-            if(type == HID_REPORT_TYPE_OUTPUT)
-            {
-                if(len == 1)
-                {
-                    hidReportLedOut = *((uint8_t *)pValue);
-                }
-                else
-                {
-                    ret = ATT_ERR_INVALID_VALUE_SIZE;
-                }
-            }
-            else if(type == HID_REPORT_TYPE_FEATURE)
-            {
-                if(len == 1)
-                {
-                    hidReportFeature = *((uint8_t *)pValue);
-                }
-                else
-                {
-                    ret = ATT_ERR_INVALID_VALUE_SIZE;
-                }
-            }
-            else
-            {
-                ret = ATT_ERR_ATTR_NOT_FOUND;
-            }
-            break;
-
-        case BOOT_KEY_OUTPUT_UUID:
-            if(len == 1)
-            {
-                hidReportBootKeyOut = *((uint8_t *)pValue);
-            }
-            else
-            {
-                ret = ATT_ERR_INVALID_VALUE_SIZE;
-            }
-            break;
-
-        default:
-            // ignore the request
-            break;
-    }
-
     return (ret);
 }
 
@@ -614,36 +513,54 @@ uint8_t Hid_SetParameter(uint8_t id, uint8_t type, uint16_t uuid, uint8_t len, v
  */
 uint8_t Hid_GetParameter(uint8_t id, uint8_t type, uint16_t uuid, uint16_t *pLen, void *pValue)
 {
-    switch(uuid)
+    PRINT("Hid_GetParameter: uuid=0x%04x, id=%d, type=%d\n", uuid, id, type);
+
+    // 处理 Report 特性读取（uuid = 0x2A4D）
+    if (uuid == REPORT_UUID)
     {
-        case REPORT_UUID:
-            if(type == HID_REPORT_TYPE_OUTPUT)
+        // 输入报告（键盘、多媒体）
+        if (type == HID_REPORT_TYPE_INPUT)
+        {
+            if (id == HID_RPT_ID_KEY_IN) // ID = 1，键盘
             {
-                *((uint8_t *)pValue) = hidReportLedOut;
-                *pLen = 1;
+                if (*pLen >= 2)
+                {
+                    memcpy(pValue, hidReportKeyIn, 2);
+                    *pLen = 2;
+                    return SUCCESS;
+                }
+                else
+                {
+                    return ATT_ERR_INVALID_VALUE_SIZE; // 缓冲区不足
+                }
             }
-            else if(type == HID_REPORT_TYPE_FEATURE)
+            else if (id == HID_RPT_ID_MEDIA_IN) // ID = 2，多媒体
             {
-                *((uint8_t *)pValue) = hidReportFeature;
-                *pLen = 1;
+                if (*pLen >= 1)
+                {
+                    *(uint8_t *)pValue = hidReportMediaIn[0];
+                    *pLen = 1;
+                    return SUCCESS;
+                }
+                else
+                {
+                    return ATT_ERR_INVALID_VALUE_SIZE;
+                }
             }
             else
             {
-                *pLen = 0;
+                // 未知的 Report ID
+                return ATT_ERR_ATTR_NOT_FOUND;
             }
-            break;
-
-        case BOOT_KEY_OUTPUT_UUID:
-            *((uint8_t *)pValue) = hidReportBootKeyOut;
-            *pLen = 1;
-            break;
-
-        default:
-            *pLen = 0;
-            break;
+        }
+        // 输出或特性报告（你已删除，返回错误）
+        else
+        {
+            return ATT_ERR_ATTR_NOT_FOUND;
+        }
     }
-
-    return (SUCCESS);
+    // 其他 UUID（如 Boot 输出）已删除，一律返回未找到
+    return ATT_ERR_ATTR_NOT_FOUND;
 }
 
 /*********************************************************************

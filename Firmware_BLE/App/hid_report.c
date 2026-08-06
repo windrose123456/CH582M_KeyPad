@@ -128,28 +128,48 @@ void HID_Init(void) {
 /* ======================== Report Sending ======================== */
 
 void HID_SendKeyboardReport(uint16_t bitmap) {
-    if (USB_HID_IsReady()) {
+    if (USB_IsConnected()) {
+        // USB 物理连接存在
+        if (!USB_HID_IsReady()) {
+            USB_Dev_Wakeup();
+            mDelaymS(10);
+        }
         /* USB mode: report ID=0x01, 2-byte bitmap */
         uint8_t report[3];
         report[0] = 0x01;
         report[1] = bitmap & 0xFF;
         report[2] = (bitmap >> 8) & 0xFF;
         USB_HID_SendReport(report, 3);
-    } else {
+    } 
+    else {
         /* BLE mode: direct bitmap, no report ID in payload */
-        BLE_HID_SendKbdReport(bitmap);
+        uint8_t report[2];
+        report[0] = bitmap & 0xFF;
+        report[1] = (bitmap >> 8) & 0xFF;
+        BLE_HID_SendReport(0x01, report, 2);
     }
     last_send_date_tick = TMOS_GetSystemClock();
 }
 
 void HID_SendConsumerReport(uint8_t value) {
-    if (USB_HID_IsReady()) {
+    if (USB_IsConnected()) {
+        // USB 物理连接存在
+        if (!USB_HID_IsReady()) {
+            USB_Dev_Wakeup();
+            mDelaymS(10);
+        }
         uint8_t consumerReport[2];
         consumerReport[0] = 0x02;
         consumerReport[1] = value;
         USB_HID_SendReport(consumerReport, 2);
     }
-    /* BLE consumer control: extend here if BLE supports it */
+    else { /* BLE consumer control */
+        
+        uint8_t consumerReport[2];
+        consumerReport[0] = 0x02;
+        consumerReport[1] = value;
+        BLE_HID_SendReport(0x02, consumerReport, 2);
+    }
     last_send_date_tick = TMOS_GetSystemClock();
 }
 
