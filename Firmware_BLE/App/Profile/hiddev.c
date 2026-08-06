@@ -3,7 +3,7 @@
  * Author             : WCH
  * Version            : V1.0
  * Date               : 2018/12/10
- * Description        : HID Éè±¸ÈÎÎñ´¦Àí³ÌĞò
+ * Description        : HID ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  *********************************************************************************
  * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
  * Attention: This software (modified or not) and binary are used for 
@@ -454,6 +454,9 @@ bStatus_t HidDev_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
 
     uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
 
+    // DEBUG: log all read operations
+    printf("[READ] handle=0x%04x uuid=0x%04x off=%d max=%d\r\n", pAttr->handle, uuid, offset, maxLen);
+
     // Only report map is long
     if(offset > 0 && uuid != REPORT_MAP_UUID)
     {
@@ -544,6 +547,11 @@ bStatus_t HidDev_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
     }
 
     uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
+
+    // DEBUG: log all write operations
+    printf("[WRITE] handle=0x%04x uuid=0x%04x len=%d val=", pAttr->handle, uuid, len);
+    for(int i=0; i<len && i<8; i++) printf("%02x ", pValue[i]);
+    printf("\r\n");
 
     if(uuid == REPORT_UUID ||
        uuid == BOOT_KEY_OUTPUT_UUID)
@@ -840,6 +848,8 @@ static void hidDevParamUpdateCB(uint16_t connHandle, uint16_t connInterval,
  */
 static void hidDevPairStateCB(uint16_t connHandle, uint8_t state, uint8_t status)
 {
+    printf("[PAIR] conn=%d state=%d status=%d\r\n", connHandle, state, status);
+
     if(state == GAPBOND_PAIRING_STATE_COMPLETE)
     {
         if(status == SUCCESS)

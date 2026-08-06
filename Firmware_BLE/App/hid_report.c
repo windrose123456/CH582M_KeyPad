@@ -165,10 +165,9 @@ void HID_SendConsumerReport(uint8_t value) {
     }
     else { /* BLE consumer control */
         
-        uint8_t consumerReport[2];
-        consumerReport[0] = 0x02;
-        consumerReport[1] = value;
-        BLE_HID_SendReport(0x02, consumerReport, 2);
+        uint8_t consumerReport[1];
+        consumerReport[0] = value;
+        BLE_HID_SendReport(0x02, consumerReport, 1);
     }
     last_send_date_tick = TMOS_GetSystemClock();
 }

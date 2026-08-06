@@ -7,14 +7,14 @@
  * 
  * @copyright Copyright (c) 2026
  * 
- * ¸ÃÎÄ¼þ°üº¬ÄÚÈÝ:
- * BLE GAP¹ã²¥ÅäÖÃ (¹ã²¥Êý¾Ý¡¢É¨ÃèÏìÓ¦Êý¾Ý)
- * BLEÁ¬½Ó¹ÜÀí (Á¬½Ó²ÎÊý¸üÐÂ¡¢PHY¸üÐÂ)
- * BLEÅä¶Ô/°ó¶¨ÅäÖÃ
- * BLE HID·þÎñ×¢²á
- * BLE HID±¨¸æ·¢ËÍ
- * BLE×´Ì¬»Øµ÷´¦Àí
- * TMOSÊÂ¼þ´¦Àí (BLEÏà¹ØÊÂ¼þ)
+ * ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:
+ * BLE GAPï¿½ã²¥ï¿½ï¿½ï¿½ï¿½ (ï¿½ã²¥ï¿½ï¿½ï¿½Ý¡ï¿½É¨ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½)
+ * BLEï¿½ï¿½ï¿½Ó¹ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½Ó²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¡ï¿½PHYï¿½ï¿½ï¿½ï¿½)
+ * BLEï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * BLE HIDï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½
+ * BLE HIDï¿½ï¿½ï¿½æ·¢ï¿½ï¿½
+ * BLE×´Ì¬ï¿½Øµï¿½ï¿½ï¿½ï¿½ï¿½
+ * TMOSï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ (BLEï¿½ï¿½ï¿½ï¿½Â¼ï¿½)
  *
  */
 
@@ -98,7 +98,7 @@ static uint8_t advertData[] = {
     // flags
     0x02, // length of this data
     GAP_ADTYPE_FLAGS,
-    GAP_ADTYPE_FLAGS_LIMITED | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+    GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
 
     // appearance
     0x03, // length of this data
@@ -290,6 +290,9 @@ void BleHidEmu_Init()
         GAPBondMgr_SetParameter(GAPBOND_PERI_IO_CAPABILITIES, sizeof(uint8_t), &ioCap);
         GAPBondMgr_SetParameter(GAPBOND_PERI_BONDING_ENABLED, sizeof(uint8_t), &bonding);
     }
+
+    // DEBUG: erase all bonds on startup to avoid stale bonding issues
+    GAPBondMgr_SetParameter(GAPBOND_ERASE_ALLBONDS, 0, NULL);
 
     // Setup Battery Characteristic Values
     {

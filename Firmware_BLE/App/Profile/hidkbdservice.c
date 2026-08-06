@@ -202,6 +202,9 @@ static uint8_t hidReportMapProps = GATT_PROP_READ;
 // 所以建议保留，值设为 REPORT 协议模式（0x01）
 static uint8_t hidProtocolModeProps = GATT_PROP_READ | GATT_PROP_WRITE_NO_RSP;
 uint8_t hidProtocolMode = HID_PROTOCOL_MODE_REPORT;  // 0x01
+// HID Control Point
+static uint8_t hidControlPointProps = GATT_PROP_WRITE;
+static uint8_t hidControlPoint;
 
 // ==================== 6. 键盘输入报告（ID = 1） ====================
 static uint8_t       hidReportKeyInProps = GATT_PROP_READ | GATT_PROP_NOTIFY;
@@ -276,6 +279,21 @@ static gattAttribute_t hidAttrTbl[] = {
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
         &hidProtocolMode
+    },
+
+    // ====== HID Control Point ======
+    {
+        {ATT_BT_UUID_SIZE, characterUUID},
+        GATT_PERMIT_READ,
+        0,
+        &hidControlPointProps
+    },
+    // HID Control Point characteristic
+    {
+        {ATT_BT_UUID_SIZE, hidControlPointUUID},
+        GATT_PERMIT_WRITE,
+        0,
+        &hidControlPoint
     },
 
     // ====== 4. HID 报告映射特性（必须） ======
@@ -375,6 +393,8 @@ enum {
     HID_INFO_IDX,
     HID_PROTOCOL_MODE_CHAR_IDX,
     HID_PROTOCOL_MODE_IDX,
+    HID_CONTROL_POINT_CHAR_IDX,
+    HID_CONTROL_POINT_IDX,
     HID_REPORT_MAP_CHAR_IDX,
     HID_REPORT_MAP_IDX,
     // 键盘输入报告
