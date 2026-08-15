@@ -1,0 +1,53 @@
+Protel Design System Design Rule Check
+PCB File : E:\WCH.CN\CH582M_KeyPad\CH634X-USB-HUB\CH634X-USB-Hub.PcbDoc
+Date     : 2026/8/13
+Time     : 1:47:19
+
+Processing Rule : Clearance Constraint (Gap=7mil) (All),(All)
+Rule Violations :0
+
+Processing Rule : Clearance Constraint (Gap=4.8mil) (InNetClass('DiffNetClass')),(All)
+Rule Violations :0
+
+Processing Rule : Clearance Constraint (Gap=10mil) (InPolygon),(All)
+Rule Violations :0
+
+Processing Rule : Short-Circuit Constraint (Allowed=No) (All),(All)
+Rule Violations :0
+
+Processing Rule : Un-Routed Net Constraint ( (All) )
+   Violation between Un-Routed Net Constraint: Via (236.11mil,1482.953mil) from Top Layer to Bottom Layer Dead Copper - Net Not Assigned.
+   Violation between Un-Routed Net Constraint: Via (236.11mil,223.11mil) from Top Layer to Bottom Layer Dead Copper - Net Not Assigned.
+   Violation between Un-Routed Net Constraint: Via (2992.016mil,1482.953mil) from Top Layer to Bottom Layer Dead Copper - Net Not Assigned.
+   Violation between Un-Routed Net Constraint: Via (2992.016mil,223.11mil) from Top Layer to Bottom Layer Dead Copper - Net Not Assigned.
+Rule Violations :4
+
+Processing Rule : Modified Polygon (Allow modified: No), (Allow shelved: No)
+Rule Violations :0
+
+Processing Rule : Width Constraint (Min=8mil) (Max=100mil) (Preferred=10mil) (All)
+Rule Violations :0
+
+Processing Rule : Power Plane Connect Rule(Relief Connect )(Expansion=20mil) (Conductor Width=10mil) (Air Gap=10mil) (Entries=4) (All)
+Rule Violations :0
+
+Processing Rule : Hole Size Constraint (Min=1mil) (Max=100mil) (All)
+   Violation between Hole Size Constraint: (118.1mil > 100mil) Via (236.11mil,1482.953mil) from Top Layer to Bottom Layer Actual Hole Size = 118.1mil
+   Violation between Hole Size Constraint: (118.1mil > 100mil) Via (236.11mil,223.11mil) from Top Layer to Bottom Layer Actual Hole Size = 118.1mil
+   Violation between Hole Size Constraint: (118.1mil > 100mil) Via (2992.016mil,1482.953mil) from Top Layer to Bottom Layer Actual Hole Size = 118.1mil
+   Violation between Hole Size Constraint: (118.1mil > 100mil) Via (2992.016mil,223.11mil) from Top Layer to Bottom Layer Actual Hole Size = 118.1mil
+Rule Violations :4
+
+Processing Rule : Hole To Hole Clearance (Gap=10mil) (All),(All)
+Rule Violations :0
+
+Processing Rule : Net Antennae (Tolerance=0mil) (All)
+Rule Violations :0
+
+Processing Rule : Height Constraint (Min=0mil) (Max=1000mil) (Prefered=500mil) (All)
+Rule Violations :0
+
+
+Violations Detected : 8
+Waived Violations : 0
+Time Elapsed        : 00:00:02
