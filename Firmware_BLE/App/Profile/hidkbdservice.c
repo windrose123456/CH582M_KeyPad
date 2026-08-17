@@ -223,10 +223,10 @@ static uint8_t hidReportRefMediaIn[HID_REPORT_REF_LEN] =
     {HID_RPT_ID_MEDIA_IN, HID_REPORT_TYPE_INPUT};
 
 // ==================== 8. LED 输出报告（ID = 3，留待后续启用） ====================
-// static uint8_t hidReportLedOutProps = GATT_PROP_READ | GATT_PROP_WRITE | GATT_PROP_WRITE_NO_RSP;
-// static uint8_t hidReportLedOut;
-// static uint8_t hidReportRefLedOut[HID_REPORT_REF_LEN] =
-//     {HID_RPT_ID_LED_OUT, HID_REPORT_TYPE_OUTPUT};
+static uint8_t hidReportLedOutProps = GATT_PROP_READ | GATT_PROP_WRITE | GATT_PROP_WRITE_NO_RSP;
+static uint8_t hidReportLedOut;
+static uint8_t hidReportRefLedOut[HID_REPORT_REF_LEN] =
+    {HID_RPT_ID_LED_OUT, HID_REPORT_TYPE_OUTPUT};
 
 /*********************************************************************
  * Profile Attributes - Table
@@ -276,10 +276,9 @@ static gattAttribute_t hidAttrTbl[] = {
     // HID Protocol Mode characteristic
     {
         {ATT_BT_UUID_SIZE, hidProtocolModeUUID},
-        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
+        GATT_PERMIT_ENCRYPT_READ | GATT_PERMIT_ENCRYPT_WRITE,
         0,
-        &hidProtocolMode
-    },
+        &hidProtocolMode},
 
     // ====== HID Control Point ======
     {
@@ -368,21 +367,28 @@ static gattAttribute_t hidAttrTbl[] = {
         hidReportRefMediaIn        // {ID=2, TYPE=INPUT}
     },
 
-    // // HID Report characteristic, LED output declaration
-    // {
-    //     {ATT_BT_UUID_SIZE, characterUUID},
-    //     GATT_PERMIT_READ,
-    //     0,
-    //     &hidReportLedOutProps
-    // },
+    // HID Report characteristic, LED output declaration
+    {
+        {ATT_BT_UUID_SIZE, characterUUID},
+        GATT_PERMIT_READ,
+        0,
+        &hidReportLedOutProps
+    },
 
-    // // HID Report characteristic, LED output
-    // {
-    //     {ATT_BT_UUID_SIZE, hidReportUUID},
-    //     GATT_PERMIT_ENCRYPT_READ | GATT_PERMIT_ENCRYPT_WRITE,
-    //     0,
-    //     &hidReportLedOut
-    // },
+    // HID Report characteristic, LED output
+    {
+        {ATT_BT_UUID_SIZE, hidReportUUID},
+        GATT_PERMIT_ENCRYPT_READ | GATT_PERMIT_ENCRYPT_WRITE,
+        0,
+        &hidReportLedOut
+    },
+
+    // HID Report Reference characteristic descriptor, LED output
+    {
+        {ATT_BT_UUID_SIZE, reportRefUUID},
+        GATT_PERMIT_READ,
+        0,
+        hidReportRefLedOut},
 };
 
 // Attribute index enumeration-- these indexes match array elements above
@@ -397,17 +403,21 @@ enum {
     HID_CONTROL_POINT_IDX,
     HID_REPORT_MAP_CHAR_IDX,
     HID_REPORT_MAP_IDX,
-    // 键盘输入报告
+    // 键盘输入报告 (ID=1)
     HID_REPORT_KEY_IN_CHAR_IDX,
     HID_REPORT_KEY_IN_IDX,
     HID_REPORT_KEY_IN_CCCD_IDX,
     HID_REPORT_KEY_IN_REF_IDX,
-    // 多媒体输入报告
+    // 多媒体输入报告 (ID=2)
     HID_REPORT_MEDIA_IN_CHAR_IDX,
     HID_REPORT_MEDIA_IN_IDX,
     HID_REPORT_MEDIA_IN_CCCD_IDX,
     HID_REPORT_MEDIA_IN_REF_IDX,
-    HID_NUM_ATTRS  // 总属性数
+    // LED 输出报告 (ID=3)
+    HID_REPORT_LED_OUT_CHAR_IDX,   // 声明
+    HID_REPORT_LED_OUT_IDX,        // 特征值
+    HID_REPORT_LED_OUT_REF_IDX,    // 报告引用描述符
+    HID_NUM_ATTRS                  // 总属性数（必须放在最后）
 };
 
 /*********************************************************************
@@ -470,11 +480,11 @@ bStatus_t BleHid_AddService(void)
     hidRptMap[1].mode = HID_PROTOCOL_MODE_REPORT;
 
     // LED output report
-    // hidRptMap[1].id = hidReportRefLedOut[0];
-    // hidRptMap[1].type = hidReportRefLedOut[1];
-    // hidRptMap[1].handle = hidAttrTbl[HID_REPORT_LED_OUT_IDX].handle;
-    // hidRptMap[1].cccdHandle = 0;
-    // hidRptMap[1].mode = HID_PROTOCOL_MODE_REPORT;
+    hidRptMap[1].id = hidReportRefLedOut[0];
+    hidRptMap[1].type = hidReportRefLedOut[1];
+    hidRptMap[1].handle = hidAttrTbl[HID_REPORT_LED_OUT_IDX].handle;
+    hidRptMap[1].cccdHandle = 0;
+    hidRptMap[1].mode = HID_PROTOCOL_MODE_REPORT;
 
     // Setup report ID map
     HidDev_RegisterReports(HID_NUM_REPORTS, hidRptMap);
@@ -512,6 +522,48 @@ bStatus_t BleHid_AddService(void)
 uint8_t Hid_SetParameter(uint8_t id, uint8_t type, uint16_t uuid, uint8_t len, void *pValue)
 {
     bStatus_t ret = SUCCESS;
+
+    switch(uuid)
+    {
+        case REPORT_UUID:
+            if(type == HID_REPORT_TYPE_OUTPUT)  // 只保留 LED 输出
+            {
+                // 兼容 len=1（无ID）和 len=2（带ID=0x03）
+                if(len == 1)
+                {
+                    // 主机只发了1字节，直接作为LED状态
+                    hidReportLedOut = *((uint8_t *)pValue);
+                }
+                else if(len == 2)
+                {
+                    uint8_t *pData = (uint8_t *)pValue;
+                    // 校验报告 ID 是否为 3（可选，但建议加）
+                    if(pData[0] == HID_RPT_ID_LED_OUT) 
+                    {
+                        hidReportLedOut = pData[1];  // 取第二字节
+                    }
+                    else
+                    {
+                        ret = ATT_ERR_INVALID_VALUE_SIZE; // ID 不匹配
+                    }
+                }
+                else
+                {
+                    ret = ATT_ERR_INVALID_VALUE_SIZE;
+                }
+            }
+            else
+            {
+                // 其他类型（如 INPUT）主机不应写入，直接忽略
+                ret = ATT_ERR_ATTR_NOT_FOUND;
+            }
+            break;
+
+        default:
+            // 忽略未知 UUID
+            break;
+    }
+
     return (ret);
 }
 
@@ -533,54 +585,29 @@ uint8_t Hid_SetParameter(uint8_t id, uint8_t type, uint16_t uuid, uint8_t len, v
  */
 uint8_t Hid_GetParameter(uint8_t id, uint8_t type, uint16_t uuid, uint16_t *pLen, void *pValue)
 {
-    PRINT("Hid_GetParameter: uuid=0x%04x, id=%d, type=%d\n", uuid, id, type);
-
-    // 处理 Report 特性读取（uuid = 0x2A4D）
-    if (uuid == REPORT_UUID)
+    switch(uuid)
     {
-        // 输入报告（键盘、多媒体）
-        if (type == HID_REPORT_TYPE_INPUT)
-        {
-            if (id == HID_RPT_ID_KEY_IN) // ID = 1，键盘
+        case REPORT_UUID:
+            // 只处理 OUTPUT 类型的报告（即 LED 输出）
+            if(type == HID_REPORT_TYPE_OUTPUT)
             {
-                if (*pLen >= 2)
-                {
-                    memcpy(pValue, hidReportKeyIn, 2);
-                    *pLen = 2;
-                    return SUCCESS;
-                }
-                else
-                {
-                    return ATT_ERR_INVALID_VALUE_SIZE; // 缓冲区不足
-                }
-            }
-            else if (id == HID_RPT_ID_MEDIA_IN) // ID = 2，多媒体
-            {
-                if (*pLen >= 1)
-                {
-                    *(uint8_t *)pValue = hidReportMediaIn[0];
-                    *pLen = 1;
-                    return SUCCESS;
-                }
-                else
-                {
-                    return ATT_ERR_INVALID_VALUE_SIZE;
-                }
+                *((uint8_t *)pValue) = hidReportLedOut; // 如果只返回单个字节（需要确认）
+                *pLen = sizeof(hidReportLedOut);           // 返回实际长度
             }
             else
             {
-                // 未知的 Report ID
-                return ATT_ERR_ATTR_NOT_FOUND;
+                *pLen = 0;  // 其他类型（如 INPUT）不需要从这里获取，因为 INPUT 是主动上报
             }
-        }
-        // 输出或特性报告（你已删除，返回错误）
-        else
-        {
-            return ATT_ERR_ATTR_NOT_FOUND;
-        }
+            break;
+
+        // 如果有其他自定义报告（如配置报告），在这里添加
+
+        default:
+            *pLen = 0;
+            break;
     }
-    // 其他 UUID（如 Boot 输出）已删除，一律返回未找到
-    return ATT_ERR_ATTR_NOT_FOUND;
+
+    return SUCCESS;
 }
 
 /*********************************************************************
