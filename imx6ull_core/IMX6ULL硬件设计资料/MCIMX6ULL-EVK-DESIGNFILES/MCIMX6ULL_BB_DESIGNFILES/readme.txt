@@ -1,0 +1,1 @@
+i.MX6ULL and i.MX6UL share the same BB board (28616).
