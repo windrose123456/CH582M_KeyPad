@@ -6,6 +6,11 @@
 Hardware/History/
 CH634X-USB-HUB/History/
 SL6243A/History/
+imx6ull_core/History/
+CH582M_USB_DONGLE/PnPout/
+CH634X-USB-HUB/PnPout/
+SL6243A/PnPout/
+imx6ull_core/PnPout/
 __Previews/
 *.OutJob
 *.Rpt
